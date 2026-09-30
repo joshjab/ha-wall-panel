@@ -2,15 +2,15 @@
 
 The build needs three channels:
 
-- **SSH** into the official Terminal & SSH add-on, for files and the `ha` CLI.
+- **SSH** into the official Terminal & SSH app, for files and the `ha` CLI.
 - **REST**, for states, services and config flows.
 - **Websocket**, for dashboards, HACS and the entity registry.
 
 The owner performs every privileged step. You verify each one with `hactl.py check`.
 
-## 1. SSH: the official Terminal & SSH add-on
+## 1. SSH: the official Terminal & SSH app
 
-Why this add-on:
+Why this app:
 
 - It's first-party.
 - It exposes `/config` read-write.
@@ -21,11 +21,11 @@ Samba only moves files. The File editor is a web UI you can't script.
 
 1. Generate a dedicated key on the machine you run from:
    `ssh-keygen -t ed25519 -f ~/.ssh/ha_wall_panel_ed25519 -N "" -C "ha-wall-panel"`
-2. Owner: **Settings → Add-ons → Add-on store → Terminal & SSH** (the official one, not
+2. Owner: **Settings → Apps → App store → Terminal & SSH** (Apps were called add-ons before HA 2026.2) (the official one, not
    "Advanced SSH & Web Terminal"), then install it.
 3. Owner: **Configuration** tab:
    - Under `authorized_keys`, paste the single `.pub` line and leave the password empty.
-   - Under **Network**, set the port to `22`. It ships blank, which means disabled, and the add-on
+   - Under **Network**, set the port to `22`. It ships blank, which means disabled, and the app
      log then says *"SSH port is disabled. Prevent start of SSH server."* Turn on "Show disabled
      ports" if the field is hidden.
    - Save, then **Start** (or **Restart**). Enable **Start on boot**.
@@ -33,10 +33,10 @@ Samba only moves files. The File editor is a web UI you can't script.
 
 Notes:
 
-- `/config` is a symlink to `/homeassistant` inside the add-on.
-- The add-on has **no python3**. Do data wrangling on your side: `cat` the file over SSH and
+- `/config` is a symlink to `/homeassistant` inside the app.
+- The app has **no python3**. Do data wrangling on your side: `cat` the file over SSH and
   parse it locally.
-- To revoke access, the owner deletes the key line or stops the add-on. Tell them this.
+- To revoke access, the owner deletes the key line or stops the app. Tell them this.
 
 ## 2. API token
 
@@ -56,7 +56,7 @@ Every line should print a value. Common failures:
 
 | Symptom | Cause |
 |---|---|
-| `Connection refused` on 22 | Port not set in the add-on's Network section, or the add-on isn't restarted |
+| `Connection refused` on 22 | Port not set in the app's Network section, or the app isn't restarted |
 | `Permission denied (publickey)` | Key line not saved, or the wrong key file in connection.yaml |
 | REST `401` | Token file missing, has a trailing newline issue, or the token was revoked |
 | `hacs: MISSING` | Install HACS first (needs the owner's GitHub login) |

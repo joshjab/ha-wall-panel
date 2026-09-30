@@ -6,8 +6,11 @@ re-check the linked page before relying on a key, command or version.
 
 | Topic | What was verified | Source |
 |---|---|---|
+| Apps (formerly add-ons) | Renamed in 2026.2: Settings → Apps; `ha apps` replaces `ha addons` | https://www.home-assistant.io/blog/2026/02/04/release-20262/ |
+| Install types | Only HA OS and Container are supported; Core/Supervised ended with 2025.12. Container has no Apps | https://www.home-assistant.io/installation/ · https://www.home-assistant.io/blog/2025/05/22/deprecating-core-and-supervised-installation-methods-and-32-bit-systems/ |
+| Hardware and devices | Host, radios, tablet, doorbell, alarm, locks, garage, sensors, calendar: see `from-scratch.md`, where each row links its source | `from-scratch.md` |
 | HA CLI | `ha backups new --name`, `ha core check`, `ha core restart`, `ha core update --version x` | https://www.home-assistant.io/common-tasks/os/ |
-| Terminal & SSH add-on | Ships the `ha` CLI; `/config` mapped read-write; network port must be set | https://github.com/home-assistant/addons/blob/master/ssh/DOCS.md |
+| Terminal & SSH app | Ships the `ha` CLI; `/config` mapped read-write; network port must be set | https://github.com/home-assistant/addons/blob/master/ssh/DOCS.md |
 | Serving files | `/config/www` is served at `/local/` (unauthenticated) | https://www.home-assistant.io/integrations/http/#hosting-files |
 | YAML dashboards | `lovelace: dashboards: <path-with-hyphen>: mode: yaml, filename:`. A restart is needed to add one | https://www.home-assistant.io/dashboards/dashboards/ |
 | Dashboard WS API | `lovelace/dashboards/create` (`url_path` needs a hyphen), `lovelace/config/save`, `lovelace/resources/create` | https://github.com/home-assistant/core/tree/dev/homeassistant/components/lovelace |

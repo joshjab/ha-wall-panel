@@ -609,12 +609,15 @@ def cameras_view(p: Panel) -> dict:
         bar.append({"type": "markdown", "text_only": True, "content": " \n"})
     rows = max(1, (len(items) + 1) // 2)
     areas = ["bar bar"] + [f"c{2 * r} c{2 * r + 1}" for r in range(rows)]
+    # Fixed pixel rows: `1fr` rows in an unsized grid overflow and the page scrolls.
+    bar_h = 56
+    row_h = (p.vh - 2 * PAD - bar_h - GAP * rows - 8) // rows
     cards = [grid(cols="160px 1fr 200px", cards=bar, area="bar")]
     for i, c in enumerate(items):
         cards.append(at({"type": "picture-entity", "entity": c["entity"], "name": c.get("name", ""),
-                         "camera_view": "auto", "show_state": False}, f"c{i}"))
+                         "camera_view": "auto", "aspect_ratio": "16:9", "show_state": False}, f"c{i}"))
     return {"title": "Cameras", "path": "cameras", "type": "panel", "theme": p.theme, "cards": [grid(
-        pad=PAD, cols="1fr 1fr", rows="56px " + " ".join(["1fr"] * rows), areas=areas, cards=cards)]}
+        pad=PAD, cols="minmax(0, 1fr) minmax(0, 1fr)", rows=f"{bar_h}px " + " ".join([f"{row_h}px"] * rows), areas=areas, cards=cards)]}
 
 
 def lists_view(p: Panel) -> dict:

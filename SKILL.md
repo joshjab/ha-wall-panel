@@ -1,6 +1,6 @@
 ---
 name: ha-wall-panel
-description: Design and build a floorplan wall-tablet dashboard for a Home Assistant instance — interview the owner, get or sketch a floorplan, simulate devices that aren't installed yet, connect to their HA over SSH + API, generate a dark, touch-first panel (ha-floorplan + button-card + layout-card + kiosk-mode + Browser Mod), deploy it with backups, and verify it at the tablet's exact viewport. Use when someone wants a Home Assistant wall panel, kiosk dashboard, floorplan dashboard, or tablet control screen, or asks to add rooms, devices, cameras, or a doorbell pop-up to one built with this kit.
+description: Design and build a floorplan wall-tablet dashboard for Home Assistant — starting from nothing if needed (host, radios, devices) or from an existing instance. Interview the owner, get or sketch a floorplan, simulate devices that aren't installed yet, connect to their HA over SSH + API, generate a dark, touch-first panel (ha-floorplan + button-card + layout-card + kiosk-mode + Browser Mod), deploy it with backups, and verify it at the tablet's exact viewport. Use when someone wants a Home Assistant wall panel, kiosk dashboard, floorplan dashboard, or tablet control screen, or asks to add rooms, devices, cameras, or a doorbell pop-up to one built with this kit.
 ---
 
 # HA Wall Panel
@@ -11,17 +11,23 @@ every tap target is finger-sized, colour only ever means state, and nothing brea
 is missing. This skill is the procedure; `scripts/` does the mechanical work; `references/` holds
 the detail you load when you reach each phase.
 
+**Where things live.** This skill folder holds the kit (scripts, templates, references). The
+owner's own files (`panel.yaml`, `connection.yaml`, the floorplan PNGs and `build/`) go in a
+project folder of their own, and every script is run from there, e.g.
+`python3 <skill-dir>/scripts/generate.py panel.yaml --out build`. Suggest they make that folder
+a git repo: it becomes the source of truth for their panel.
+
 **Work in phases, in order.** Each phase ends with something the owner can see or confirm.
 Don't skip ahead to building before the interview and the mockup are agreed — rework on a live
 Home Assistant is expensive, and the owner's answers change the design.
 
 ## Ground rules
 
-- **Their Home Assistant is live.** Back it up before the first change (`hactl.py backup`), keep
+- **Their Home Assistant is live** (or about to be). Back it up before the first change (`hactl.py backup`), keep
   every change additive and reversible, and run `ha core check` before any restart. Say what you
   are about to change before you change it.
 - **Never handle their secrets in chat.** The owner creates the long-lived access token and the
-  SSH add-on key line, and writes the token to `token_file` themselves. You never ask them to
+  SSH app key line, and writes the token to `token_file` themselves. You never ask them to
   paste a password, token, or OAuth client secret into the conversation — those go straight into
   the HA UI or a local file. Tablet passwords are theirs alone.
 - **Pin every claim to a source.** Versions and syntax for HA and every custom card change fast.
@@ -31,6 +37,20 @@ Home Assistant is expensive, and the owner's answers change the design.
   (Nabu Casa, paid camera APIs) are the owner's call. Surface the cost, don't assume.
 - **Placeholders are first-class.** A device the owner doesn't have yet becomes a `sim` entity so
   the panel is complete on day one; swapping in the real device later is a one-line change.
+
+## Phase 0 — Starting from nothing (only if needed)
+
+Ask first: "Do you already run Home Assistant? Which install type?" If they have none, or they
+run HA Container, or they want advice on what to buy, load `references/from-scratch.md`:
+
+- **Host.** This kit needs **Home Assistant OS** (Apps + `ha` CLI). Home Assistant Green is the
+  default, a Pi 5 or mini PC or VM if they already have one. Walk them through first boot,
+  onboarding, updates, HACS (needs their GitHub account) and the Companion app on their phones.
+- **Buy in order of value, not all at once**: host + tablet (panel live, everything simulated) →
+  doorbell → Zigbee door/motion sensors → alarm (Alarmo) → locks and garage → lights and
+  thermostats. Each purchase later replaces one `sim`.
+- Quote prices only from `from-scratch.md` and say they're MSRP at its date. Never buy anything
+  for them; list options and let them choose.
 
 ## Phase 1 — Interview
 
@@ -92,7 +112,8 @@ take their edits. Room names, what's on the main page vs a secondary page, scene
 
 Load `references/ha-access.md`. The owner does the privileged steps; you verify:
 
-1. **SSH**: they install the official **Terminal & SSH** add-on, paste your public key into
+1. **SSH**: they install the official **Terminal & SSH** App (Settings → Apps; called add-ons
+   before HA 2026.2), paste your public key into
    `authorized_keys`, set the network port to **22** (it ships disabled — the log says "SSH port
    is disabled"), save, and restart it. Generate a dedicated key for this
    (`ssh-keygen -t ed25519 -f ~/.ssh/ha_wall_panel_ed25519 -N ""`) so it can be revoked alone.
@@ -101,7 +122,7 @@ Load `references/ha-access.md`. The owner does the privileged steps; you verify:
 3. Copy `connection.example.yaml` → `connection.yaml`, fill it in, and run
    `scripts/hactl.py check`. Every line must pass before you continue.
 4. Read the current state without changing anything: `configuration.yaml`, installed HACS
-   repositories, dashboards, add-ons, users, entity list. Note any existing `homeassistant:`,
+   repositories, dashboards, Apps (`ha apps`), users, entity list. Note any existing `homeassistant:`,
    `lovelace:`, or `frontend:` keys — you will merge into them, not duplicate them.
 
 ## Phase 5 — Build
@@ -188,5 +209,5 @@ and `entity` its Fluent (sub) stream camera.
 
 ## Verification
 
-`python3 scripts/generate.py examples/panel.example.yaml --out /tmp/wp-build` exits 0 and prints
+From the skill folder, `python3 scripts/generate.py examples/panel.example.yaml --out /tmp/wp-build` exits 0 and prints
 a dashboard, package, theme and asset directory; every YAML file under `/tmp/wp-build` parses.

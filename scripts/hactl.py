@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Talk to Home Assistant for the wall-panel kit: SSH, websocket, REST, deploy, SIM cameras.
 
-Connection details live in connection.yaml (git-ignored; copy connection.example.yaml).
+Connection details live in connection.yaml in the current folder (git-ignored; copy connection.example.yaml).
 The long-lived access token is read from `token_file`, never from the command line or chat.
 
     hactl.py check                      verify SSH, `ha` CLI, REST and websocket all work
-    hactl.py ssh '<command>'            run a command in the Terminal & SSH add-on
+    hactl.py ssh '<command>'            run a command in the Terminal & SSH app
     hactl.py ws '<json>'                send one websocket command, print the result
     hactl.py backup "<name>"            full backup via `ha backups new`, then list it
     hactl.py hacs <repo_id> [...]       install HACS repositories by numeric GitHub id
     hactl.py deploy build/              copy a generated build into /config, then `ha core check`
-    hactl.py sim-cameras panel.yaml     create Generic Camera entries for `sim` cameras
+    hactl.py sim-cameras panel.yaml [--dry-run]
+                                        create Generic Camera entries for `sim` cameras
     hactl.py reload                     reload input helpers, templates, scripts, automations, themes
 
 Requires: PyYAML, websocket-client.
@@ -42,9 +43,12 @@ HACS = {
 
 
 def conn() -> dict:
-    path = Path(os.environ.get("WALLPANEL_CONNECTION", KIT / "connection.yaml"))
-    if not path.exists():
-        sys.exit(f"missing {path}: copy connection.example.yaml and fill it in")
+    # $WALLPANEL_CONNECTION, else ./connection.yaml (the owner's project folder), else the kit's own.
+    candidates = [Path(os.environ["WALLPANEL_CONNECTION"])] if os.environ.get("WALLPANEL_CONNECTION") else \
+        [Path.cwd() / "connection.yaml", KIT / "connection.yaml"]
+    path = next((c for c in candidates if c.exists()), None)
+    if path is None:
+        sys.exit(f"missing connection.yaml: copy {KIT / 'connection.example.yaml'} into this folder and fill it in")
     c = yaml.safe_load(path.read_text())
     c["ssh_key"] = os.path.expanduser(c.get("ssh_key", "~/.ssh/ha_wall_panel_ed25519"))
     c["token_file"] = os.path.expanduser(c.get("token_file", "~/.config/ha-wall-panel/token"))
@@ -53,7 +57,13 @@ def conn() -> dict:
 
 
 def token(c) -> str:
-    return Path(c["token_file"]).read_text().strip()
+    """The long-lived access token: from $HA_TOKEN if set, else from token_file."""
+    if os.environ.get("HA_TOKEN"):
+        return os.environ["HA_TOKEN"].strip()
+    path = Path(c["token_file"])
+    if not path.exists():
+        sys.exit(f"no token: set HA_TOKEN or create {path} (chmod 600) holding only the token")
+    return path.read_text().strip()
 
 
 # --------------------------------------------------------------------------- transports
@@ -151,7 +161,7 @@ def cmd_reload():
     print("reloaded themes")
 
 
-def cmd_sim_cameras(panel: Path):
+def cmd_sim_cameras(panel: Path, dry_run: bool = False):
     """Generic Camera entries from still-image URLs, renamed to camera.sim_<name>."""
     cfg = yaml.safe_load(panel.read_text())
     cams = cfg.get("cameras") or {}
@@ -165,7 +175,10 @@ def cmd_sim_cameras(panel: Path):
         title = f"SIM {cam['name']}"
         target = "camera.sim_" + re.sub(r"[^a-z0-9]+", "_", cam["name"].lower()).strip("_")
         if title in existing:
-            print("skip", title)
+            print("skip", title, "(already exists)")
+            continue
+        if dry_run:
+            print("would create", title, "->", target, "from", cam["sim_still_url"])
             continue
         flow = rest("POST", "/api/config/config_entries/flow", {"handler": "generic"})
         data = {"still_image_url": cam["sim_still_url"], "advanced": {"framerate": 0.5, "verify_ssl": True}}
@@ -207,7 +220,7 @@ def main():
     elif cmd == "reload":
         cmd_reload()
     elif cmd == "sim-cameras":
-        cmd_sim_cameras(Path(rest_args[0]))
+        cmd_sim_cameras(Path(rest_args[0]), dry_run="--dry-run" in rest_args)
     else:
         sys.exit(f"unknown command {cmd}; see --help")
 

@@ -67,7 +67,7 @@ panel on day one, and each device goes live by editing one line.
 ## 5. Access and environment
 
 - The Home Assistant URL from wherever you're running (LAN IP, `homeassistant.local`, Tailscale).
-- HA version and install type (the build assumes HAOS or Supervised, because it uses add-ons and the `ha` CLI).
+- HA version and install type. The build needs Home Assistant OS (Apps and the `ha` CLI); Container has no Apps, and Supervised is no longer supported. If they have none, run Phase 0 (`from-scratch.md`).
 - Is HACS installed? If not, that's the owner's first step; it needs a GitHub login.
 - Is anything already on `configuration.yaml` that we need to merge with (packages, themes,
   lovelace dashboards)?

@@ -37,5 +37,5 @@ Add to this list whenever something surprises you.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| SSH refused after installing the add-on | The network port ships blank (disabled) | Set port 22 in Configuration → Network, then restart the add-on |
+| SSH refused after installing the app | The network port ships blank (disabled) | Set port 22 in Configuration → Network, then restart the app |
 | `/api/hassio/*` returns 401 with an admin token | Supervisor API isn't open to user tokens through the proxy | Use the `ha` CLI over SSH |

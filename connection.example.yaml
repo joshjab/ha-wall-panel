@@ -3,7 +3,7 @@
 # How this machine reaches Home Assistant's web/API port.
 ha_url: http://homeassistant.local:8123
 
-# The official "Terminal & SSH" add-on, key-only, network port set to 22.
+# The official "Terminal & SSH" App (add-on before HA 2026.2), key-only, network port set to 22.
 ssh_host: homeassistant.local
 ssh_port: 22
 ssh_user: root
@@ -11,4 +11,5 @@ ssh_key: ~/.ssh/ha_wall_panel_ed25519
 
 # A file holding ONLY the long-lived access token (Profile → Security → Long-lived access tokens).
 # The owner creates it and writes it here themselves: `chmod 600` it, never paste the token into chat.
+# Alternatively export HA_TOKEN in the shell that runs the scripts (it wins over token_file).
 token_file: ~/.config/ha-wall-panel/token
