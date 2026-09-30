@@ -1,0 +1,78 @@
+# Example panel.yaml: a fictional two-storey house with no floorplan file, sketched from a
+# conversation (see references/floorplan.md). Every device is `sim`, so this builds a fully
+# working panel on a fresh Home Assistant. Full key reference: references/panel-schema.md.
+
+title: Wall Panel
+dashboard: wall-panel            # URL path; must contain a hyphen
+theme_name: Wall Panel Dark
+package: wall_panel              # prefix for generated scripts/sensors
+viewport: {width: 1280, height: 800}   # measure on the tablet with viewport.html
+asset_version: 1                 # bump after changing images/CSS to bust the tablet's cache
+
+tablet:
+  browser_id: wall-panel-kitchen # Browser Mod ID the doorbell pop-up targets
+  screen_switch: null            # e.g. switch.kitchen_tablet_screen (Fully Kiosk integration)
+
+floors:
+  - id: main
+    name: Main floor
+    image: sketch-main.png       # from scripts/sketch_floorplan.py (or prepare_floorplan.py)
+    width: 520
+    height: 540
+    rooms:
+      - {id: living,  name: Living,  rect: [20, 20, 230, 200],  light: sim, motion: sim, temperature: sim}
+      - {id: kitchen, name: Kitchen, rect: [250, 20, 170, 200], light: sim, motion: sim}
+      - {id: dining,  name: Dining,  rect: [420, 20, 80, 200],  light: sim, motion: sim}
+      - {id: hall,    name: Hall,    rect: [20, 220, 400, 60],  light: sim, motion: sim, kind: hall}
+      - {id: office,  name: Office,  rect: [20, 280, 150, 150], light: sim, motion: sim}
+      - {id: bath,    name: Bath,    rect: [170, 280, 80, 90],  light: sim, motion: sim}
+      - {id: laundry, name: Laundry, rect: [170, 370, 80, 60],  light: sim, motion: sim}
+      - {id: garage,  name: Garage,  rect: [250, 280, 250, 240], light: sim, motion: sim}
+    doors:                       # sketch only: doorway gaps [x, y, length, h|v]
+      - [120, 220, 40, h]
+      - [300, 220, 40, h]
+      - [80, 280, 30, h]
+      - [190, 280, 30, h]
+      - [250, 230, 40, v]
+    locks:
+      - {id: front, name: Front door, entity: sim, badge: [60, 250]}
+      - {id: back,  name: Back door,  entity: sim}
+    garage:
+      name: Garage
+      entity: sim
+      bar: [260, 514, 230, 8]    # the door edge drawn on the plan
+    stairs:
+      - {to: upstairs, at: [330, 232]}
+  - id: upstairs
+    name: Upstairs               # no image yet: renders a placeholder with a way back
+    stairs:
+      - {to: main}
+
+people:
+  - {entity: person.alex, name: Alex}
+weather: weather.forecast_home
+alarm: sim
+climate:
+  - {name: Downstairs, entity: null}   # null = "Not installed yet" tile
+  - {name: Upstairs, entity: null}
+calendar: null                         # e.g. calendar.family
+lists: [todo.shopping_list]
+
+cameras:
+  note: SIM feeds are public still images standing in until real cameras are installed.
+  doorbell:
+    name: Front door
+    entity: sim
+    ring: sim                          # real: binary_sensor.<doorbell>_visitor
+    sim_still_url: https://example.com/public-camera.jpg   # any public, unencrypted still image
+  others:
+    - {name: Driveway, entity: sim, sim_still_url: https://example.com/public-camera-2.jpg}
+
+scenes:
+  - {name: All off,   icon: mdi:power,              preset: all_off}
+  - {name: Goodnight, icon: mdi:weather-night,      preset: goodnight}
+  - {name: Morning,   icon: mdi:weather-sunny,      preset: morning, lights_on: [kitchen, living]}
+  - {name: Movie,     icon: mdi:television-classic, preset: movie,   lights_on: [living]}
+
+alerts:
+  garage_open_minutes: 20

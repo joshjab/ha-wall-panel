@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viewport probe</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0e1012; color: #ecebe7; font-family: system-ui, sans-serif; }
+  body { display: flex; align-items: center; justify-content: center; }
+  #out { font-size: 48px; line-height: 1.4; text-align: center; }
+  small { display: block; font-size: 20px; color: #a3a9ae; }
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+  function show() {
+    document.getElementById('out').innerHTML =
+      window.innerWidth + ' × ' + window.innerHeight + ' CSS px<br>' +
+      'DPR ' + window.devicePixelRatio + '<br>' +
+      '<small>screen ' + screen.width + ' × ' + screen.height + ' · ' + navigator.userAgent + '</small>';
+  }
+  show();
+  window.addEventListener('resize', show);
+</script>
+</body>
+</html>

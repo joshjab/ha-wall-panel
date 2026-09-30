@@ -1,0 +1,164 @@
+# button-card templates for the wall panel (https://github.com/custom-cards/button-card).
+# Merged into the generated dashboard under `button_card_templates:`. Colors match templates/theme.yaml.
+wp_tile:
+  show_state: true
+  show_icon: true
+  styles:
+    card:
+    - height: 100%
+    - padding: 0 12px
+    - border-radius: 16px
+    - background: '#16191c'
+    - border: 1px solid transparent
+    - box-shadow: none
+    grid:
+    - grid-template-areas: '"i n" "i s"'
+    - grid-template-columns: 36px 1fr
+    - grid-template-rows: 1fr 1fr
+    - column-gap: 10px
+    img_cell:
+    - width: 36px
+    - height: 36px
+    - border-radius: 10px
+    - background: '#1c2d3b'
+    - align-self: center
+    icon:
+    - width: 18px
+    - color: '#7cb7e8'
+    name:
+    - justify-self: start
+    - align-self: end
+    - font-size: 14px
+    - font-weight: 600
+    - color: '#ecebe7'
+    - white-space: nowrap
+    - overflow: hidden
+    - text-overflow: ellipsis
+    - max-width: 100%
+    state:
+    - justify-self: start
+    - align-self: start
+    - font-size: 13px
+    - color: '#a3a9ae'
+    - white-space: nowrap
+    - overflow: hidden
+    - text-overflow: ellipsis
+    - max-width: 100%
+wp_lock:
+  template: wp_tile
+  state_display: '[[[ return entity.state === ''locked'' ? ''Locked'' : ''Unlocked'' ]]]'
+  tap_action:
+    action: more-info
+  state:
+  - value: unlocked
+    styles:
+      card:
+      - background: '#2a2114'
+      - border: 1px solid
+      img_cell:
+      - background: '#f0a33a'
+      icon:
+      - color: '#0e1012'
+      name:
+      - color: '#f5b75c'
+      state:
+      - color: '#f5b75c'
+wp_placeholder:
+  template: wp_tile
+  show_state: false
+  show_label: true
+  styles:
+    grid:
+    - grid-template-areas: '"i n" "i l"'
+    img_cell:
+    - background: '#1d2125'
+    icon:
+    - color: '#6b7278'
+    label:
+    - justify-self: start
+    - align-self: start
+    - font-size: 13px
+    - color: '#a3a9ae'
+wp_action:
+  show_icon: false
+  show_state: false
+  styles:
+    card:
+    - height: 64px
+    - border-radius: 14px
+    - background: '#1d2125'
+    - border: 1px solid
+    - box-shadow: none
+    name:
+    - font-size: 15px
+    - font-weight: 600
+    - color: '#ecebe7'
+wp_scene:
+  show_state: false
+  styles:
+    card:
+    - height: 100%
+    - padding: 12px 14px
+    - border-radius: 16px
+    - background: '#16191c'
+    - box-shadow: none
+    grid:
+    - grid-template-areas: '"i" "." "n"'
+    - grid-template-columns: 1fr
+    - grid-template-rows: min-content 1fr min-content
+    img_cell:
+    - justify-self: start
+    - width: 26px
+    - height: 26px
+    icon:
+    - width: 26px
+    - color: '#ecebe7'
+    name:
+    - justify-self: start
+    - font-size: 15px
+    - font-weight: 600
+    - color: '#ecebe7'
+wp_chip:
+  show_icon: false
+  show_state: false
+  styles:
+    card:
+    - height: 44px
+    - margin-top: 10px
+    - padding: 0 14px 0 4px
+    - border-radius: 22px
+    - background: '#1d2125'
+    - box-shadow: none
+    grid:
+    - grid-template-areas: '"av n"'
+    - grid-template-columns: 32px 1fr
+    - column-gap: 8px
+    name:
+    - justify-self: start
+    - font-size: 14px
+    - color: '#ecebe7'
+    custom_fields:
+      av:
+      - width: 32px
+      - height: 32px
+      - border-radius: 16px
+      - display: flex
+      - align-items: center
+      - justify-content: center
+      - font-size: 14px
+      - font-weight: 600
+      - color: '#ecebe7'
+wp_nav:
+  show_name: false
+  show_state: false
+  styles:
+    card:
+    - width: 48px
+    - height: 48px
+    - margin-top: 8px
+    - border-radius: 12px
+    - background: transparent
+    - box-shadow: none
+    icon:
+    - width: 22px
+    - color: '#a3a9ae'

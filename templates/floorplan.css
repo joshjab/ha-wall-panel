@@ -1,0 +1,78 @@
+/* Wall Panel floorplan styles. Palette matches themes/wall-panel.yaml.
+   State classes are set by floorplan.class_set rules in dashboards/wall-panel.yaml. */
+
+svg { background: transparent; }
+
+text {
+  font-family: 'Public Sans', system-ui, sans-serif;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* Rooms: shaded when the room's lights are off, warm tint when on.
+   Class is "room" plus "light-on" and/or "motion-on", set per room by one rule. */
+.room { cursor: pointer; }
+.room .shade {
+  fill: rgba(6, 8, 10, 0.62);
+  transition: fill 0.6s ease;
+}
+.room.light-on .shade { fill: rgba(255, 207, 122, 0.10); }
+.room .label {
+  font-size: 10.5px;
+  letter-spacing: 0.4px;
+  fill: #a3a9ae;
+  transition: fill 0.6s ease;
+}
+.room .label.small { font-size: 8px; }
+.room.light-on .label { fill: #ffe2ad; }
+
+/* Motion: outline + MOTION tag appear instantly and fade out over 30 s (no looping animation). */
+.room .outline,
+.room .tag {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 30s ease-out;
+}
+.room .outline { fill: none; stroke: #7cb7e8; stroke-width: 2.5; }
+.room .tag rect { fill: #7cb7e8; }
+.room .tag text { font-size: 8.5px; font-weight: 700; letter-spacing: 0.3px; fill: #0e1012; }
+.room.motion-on .outline,
+.room.motion-on .tag {
+  opacity: 0.95;
+  transition: opacity 0.2s ease-in;
+}
+
+/* Room temperature label. */
+.temp {
+  font-family: 'Barlow Semi Condensed', system-ui, sans-serif;
+  font-size: 17px;
+  fill: #ecebe7;
+  paint-order: stroke;
+  stroke: rgba(14, 16, 18, 0.85);
+  stroke-width: 5px;
+}
+
+/* Doors: neutral closed, amber open, red open while armed. */
+.door { fill: #3a4148; transition: fill 0.4s ease; }
+.door.open { fill: #f0a33a; }
+.door.open-armed { fill: #ef5b5b; }
+
+/* Lock badge: blue locked, amber unlocked. */
+.lock { cursor: pointer; }
+.lock circle { fill: #7cb7e8; stroke: #0e1012; stroke-width: 2; }
+.lock path { stroke: #0e1012; }
+.lock rect { fill: #0e1012; }
+.lock.unlocked circle { fill: #f0a33a; }
+
+/* Navigation pill (stairs -> upstairs). */
+.nav { cursor: pointer; }
+.nav rect { fill: #1d2125; stroke: #3a4148; stroke-width: 1; }
+.nav path { stroke: #ecebe7; }
+.nav text { font-size: 12px; fill: #ecebe7; }
+
+/* Upstairs placeholder (upstairs.svg shares this stylesheet). */
+.placeholder-title { font-size: 20px; fill: #ecebe7; }
+.placeholder-sub { font-size: 12px; font-weight: 400; fill: #a3a9ae; }
+
+/* Small rooms (class "compact"): shrink the MOTION tag text to fit. */
+.room.compact .tag text { font-size: 7px; }

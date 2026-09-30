@@ -1,0 +1,50 @@
+# Wall Panel Dark: the wall tablet theme. Applied per view by the generated dashboard,
+# so it is dark regardless of the device's own light/dark setting. The top-level key is renamed to theme_name.
+# Color is reserved for state: blue = secure, amber = open/attention, red = alarm/problem, warm = lights.
+Wall Panel Dark:
+  # Surfaces
+  primary-background-color: "#0e1012"
+  secondary-background-color: "#16191c"
+  lovelace-background: "#0e1012"
+  card-background-color: "#16191c"
+  ha-card-background: "#16191c"
+  ha-card-border-radius: "18px"
+  ha-card-border-width: "0px"
+  ha-card-box-shadow: "none"
+  divider-color: "#2a2f34"
+  app-header-background-color: "#0e1012"
+  app-header-text-color: "#ecebe7"
+  sidebar-background-color: "#0e1012"
+
+  # Text
+  primary-text-color: "#ecebe7"
+  secondary-text-color: "#a3a9ae"
+  disabled-text-color: "#6b7278"
+  text-primary-color: "#0e1012"
+
+  # Accents
+  primary-color: "#7cb7e8"
+  accent-color: "#f0a33a"
+  state-icon-color: "#a3a9ae"
+
+  # State colors
+  state-active-color: "#ffcf7a"
+  state-light-on-color: "#ffcf7a"
+  state-input_boolean-on-color: "#ffcf7a"
+  state-lock-locked-color: "#7cb7e8"
+  state-lock-unlocked-color: "#f0a33a"
+  state-lock-jammed-color: "#ef5b5b"
+  state-cover-open-color: "#f0a33a"
+  state-cover-opening-color: "#f0a33a"
+  state-cover-closing-color: "#f0a33a"
+  state-cover-closed-color: "#7cb7e8"
+  state-alarm_control_panel-disarmed-color: "#a3a9ae"
+  state-alarm_control_panel-armed_home-color: "#7cb7e8"
+  state-alarm_control_panel-armed_away-color: "#7cb7e8"
+  state-alarm_control_panel-arming-color: "#f0a33a"
+  state-alarm_control_panel-pending-color: "#f0a33a"
+  state-alarm_control_panel-triggered-color: "#ef5b5b"
+  error-color: "#ef5b5b"
+  warning-color: "#f0a33a"
+  success-color: "#7cb7e8"
+  info-color: "#7cb7e8"
