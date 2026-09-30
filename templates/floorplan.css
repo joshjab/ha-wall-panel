@@ -76,3 +76,21 @@ text {
 
 /* Small rooms (class "compact"): shrink the MOTION tag text to fit. */
 .room.compact .tag text { font-size: 7px; }
+
+/* On-plan controls (locks, garage, alarm, scenes). Tap shows details; press and hold acts.
+   Same palette as the tiles: neutral, secure (blue), attention (amber), problem (red). */
+.ctl { cursor: pointer; }
+.ctl .bg { fill: rgba(22, 25, 28, 0.92); stroke: #3a4148; stroke-width: 1; transition: fill 0.3s ease, stroke 0.3s ease; }
+.ctl .ic { stroke: #ecebe7; }
+.ctl-label { font-size: 10px; letter-spacing: 0.6px; fill: #a3a9ae; }
+.ctl-state, .ctl-name { font-size: 15px; fill: #ecebe7; }
+.ctl.secure .bg { fill: rgba(28, 45, 59, 0.95); stroke: #3d5a73; }
+.ctl.secure .ic { stroke: #7cb7e8; }
+.ctl.secure .ctl-state { fill: #bcdcf6; }
+.ctl.attention .bg { fill: rgba(42, 33, 20, 0.95); stroke: #6b4a1c; }
+.ctl.attention .ic { stroke: #f0a33a; }
+.ctl.attention .ctl-state { fill: #f5b75c; }
+.ctl.problem .bg { fill: rgba(58, 24, 24, 0.95); stroke: #ef5b5b; }
+.ctl.problem .ic { stroke: #ef5b5b; }
+.ctl.problem .ctl-state { fill: #ffb3b3; }
+.ctl:active .bg, .lock:active circle { filter: brightness(1.35); }

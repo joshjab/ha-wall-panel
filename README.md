@@ -27,6 +27,10 @@ One main page, sized to your tablet, covers almost everything you do day to day:
 - **A header** with the clock, weather, who's home, and alert chips that only appear when
   something needs attention.
 - Secondary pages for **other floors**, **all cameras** and **lists**.
+- **Buttons on the plan itself**: locks at their doors, the garage, the alarm and your scenes.
+  Security actions need a **press and hold**; a tap just shows details.
+- **An optional phone dashboard** built from the same file: the floorplan with the same buttons,
+  who's home and the thermostats, and a tab bar for cameras, calendar and lists.
 
 ![The Cameras page: four camera tiles in a 2×2 grid with Back home and Test doorbell ring buttons](docs/cameras-page.jpg)
 

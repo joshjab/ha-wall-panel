@@ -103,6 +103,13 @@ their devices in the standard layout:
 - **Right column**: doorbell camera (16:9) beside lock/garage tiles; alarm (big state text +
   text buttons); two climate tiles; today's agenda beside a 2×2 scene grid.
 - **Doorbell pop-up**: full-screen live view with Dismiss, auto-closing after 2 minutes.
+- **On-plan controls** (optional, recommended if there's a phone view): lock buttons at doors, a
+  garage button, an alarm button and a 2×2 scene group placed in empty parts of the plan.
+  **Press and hold** to lock, unlock, open, close, arm or disarm; tap for details. Scenes and
+  lights act on a tap.
+- **Phone dashboard** (optional, `phone:` in panel.yaml): the same plan and controls in portrait,
+  with a slim top bar, people and climate below, and a Home / Cameras / Today / Lists tab bar.
+  Ask whether they'll use the Companion app; if so, set it as the app's default dashboard.
 
 Walk them through it, show one "something's wrong" state (garage open, motion, alarm armed), and
 take their edits. Room names, what's on the main page vs a secondary page, scene names. Update

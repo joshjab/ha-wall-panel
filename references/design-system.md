@@ -111,6 +111,23 @@ The alarm panel is one button-card whose `custom_fields` hold the three `wp_acti
 so it reads as one control. The active mode is highlighted in the secure colours, and Disarm is
 dimmed when already disarmed.
 
+## Phone layout (portrait)
+
+```
+┌ 6:30 ☀66°        [🛡 Disarmed] ⚙ ┐   top bar 44px; ⚙ opens Settings (HA's header is hidden)
+│ ┌───────── floorplan ─────────┐ │
+│ │ [All off][Goodnight]  DEN   │ │   scenes, locks, garage and alarm are ON the plan
+│ │ [Morning][Movie]   KITCHEN  │ │   (the same SVG as the wall panel, so always in sync)
+│ │   (🔒)  [🛡 Alarm] [Garage]  │ │
+│ └─────────────────────────────┘ │
+│ (J Josh · Away)                 │   people and alerts
+│ [Downstairs] [Upstairs]         │   climate
+├─ Home · Cameras · Today · Lists ┤   tab bar pinned to the bottom (grid height 100dvh)
+```
+
+The phone has no right column. Cameras, calendar and lists live on their own tabs. Set the phone
+dashboard as the default in the Companion app (profile → Dashboard), which is a per-device setting.
+
 ## Mockup before building
 
 Always show a static mockup at the exact viewport before changing Home Assistant. Use the

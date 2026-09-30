@@ -82,6 +82,13 @@ class Panel:
         self.vw, self.vh = int(vp.get("width", 1280)), int(vp.get("height", 800))
         self.browser_id = cfg.get("tablet", {}).get("browser_id", f"{self.dash}-tablet")
         self.screen_switch = cfg.get("tablet", {}).get("screen_switch")
+        self.alarm_hold_mode = cfg.get("alarm_hold_mode", "armed_home")
+        phone = cfg.get("phone")
+        self.phone = None
+        if phone:
+            self.phone = {"dashboard": phone.get("dashboard", "phone-panel"), "title": phone.get("title", "Home")}
+            if "-" not in self.phone["dashboard"]:
+                sys.exit("phone.dashboard must contain a hyphen, e.g. phone-panel")
         self.floors = cfg.get("floors") or []
         if not self.floors:
             sys.exit("panel.yaml needs at least one floor")
@@ -159,6 +166,9 @@ class Panel:
     def garages(self):
         return [f["garage"] for f in self.floors if f.get("garage")]
 
+    def scene_script(self, scene: dict) -> str:
+        return scene.get("script") or f"script.{self.package}_{slug(scene['name'])}"
+
     def www(self, name):
         return f"/local/{self.dash}/{name}"
 
@@ -205,12 +215,22 @@ def floor_svg(p: Panel, floor: dict) -> str:
         if not lock.get("badge"):
             continue
         cx, cy = lock["badge"]
+        r = lock.get("badge_r", 26)  # big enough to press and hold on a phone
+        k = r / 18
         out += [
             f'  <g id="lock.{lock["id"]}" class="lock">',
-            f'    <circle cx="{cx}" cy="{cy}" r="18"/>',
-            f'    <path d="M{cx - 7.5} {cy - 1}v-4a7.5 7.5 0 0 1 15 0v4" fill="none" stroke-width="2.6" stroke-linecap="round"/>',
-            f'    <rect x="{cx - 11}" y="{cy - 1}" width="22" height="13" rx="2.5"/>',
+            f'    <circle cx="{cx}" cy="{cy}" r="{r}"/>',
+            f'    <path d="M{cx - 7.5 * k} {cy - 1 * k}v{-4 * k}a{7.5 * k} {7.5 * k} 0 0 1 {15 * k} 0v{4 * k}" fill="none" '
+            f'stroke-width="{2.6 * k:.2f}" stroke-linecap="round"/>',
+            f'    <rect x="{cx - 11 * k}" y="{cy - 1 * k}" width="{22 * k}" height="{13 * k}" rx="{2.5 * k}"/>',
             "  </g>"]
+    if garage and garage.get("button"):
+        out += control_svg("ctl.garage", "", garage["button"], "garage", garage.get("name", "Garage").upper() + " · HOLD", "ctlstate.garage")
+    if floor.get("alarm_button") and p.cfg.get("alarm"):
+        out += control_svg("ctl.alarm", "", floor["alarm_button"], "shield", "ALARM · HOLD", "ctlstate.alarm")
+    for sc, box in scene_boxes(p, floor):
+        glyph = SCENE_ICON.get(sc.get("preset", slug(sc["name"])), "play")
+        out += control_svg(f"scene.{slug(sc['name'])}", "scene", box, glyph, sc["name"])
     for nav in floor.get("stairs", []) or []:
         sx, sy = nav["at"]
         target = next(f for f in p.floors if f["id"] == nav["to"])
@@ -243,6 +263,52 @@ def placeholder_svg(p: Panel, floor: dict) -> str:
 '''
 
 
+# 24-unit stroke icons used by the on-plan controls (same glyph family as the mockup).
+ICONS = {
+    "shield": "M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z",
+    "garage": "M3 21V9l9-5 9 5v12M7 21v-8h10v8",
+    "power": "M12 3v8M6.3 6.3a8 8 0 1 0 11.4 0",
+    "night": "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z",
+    "sun": "M16 12a4 4 0 1 1-8 0a4 4 0 1 1 8 0zM12 2v2M12 20v2M2 12h2M20 12h2",
+    "tv": "M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM8 21h8",
+    "play": "M8 5v14l11-7z",
+}
+SCENE_ICON = {"all_off": "power", "goodnight": "night", "morning": "sun", "movie": "tv"}
+
+
+def icon(name: str, x: float, y: float, size: float = 22) -> str:
+    k = size / 24
+    return (f'<path class="ic" transform="translate({x} {y}) scale({k:.3f})" d="{ICONS[name]}" '
+            f'fill="none" stroke-width="{2 / k:.2f}" stroke-linecap="round" stroke-linejoin="round"/>')
+
+
+def control_svg(el_id: str, cls: str, box, glyph: str, label: str, state_id: str | None = None) -> list:
+    """A labelled on-plan button: rounded rect, icon, label and (optionally) a live state line."""
+    x, y, w, h = box
+    ic = min(26, h - 20)
+    lines = [f'  <g id="{el_id}" class="ctl {cls}">',
+             f'    <rect class="bg" x="{x}" y="{y}" width="{w}" height="{h}" rx="12"/>',
+             "    " + icon(glyph, x + 12, y + (h - ic) / 2, ic)]
+    tx = x + 12 + ic + 10
+    if state_id:
+        lines += [f'    <text class="ctl-label" x="{tx}" y="{y + h / 2 - 4}">{label}</text>',
+                  f'    <text id="{state_id}" class="ctl-state" x="{tx}" y="{y + h / 2 + 13}">…</text>']
+    else:
+        lines.append(f'    <text class="ctl-name" x="{tx}" y="{y + h / 2 + 5}">{label}</text>')
+    return lines + ["  </g>"]
+
+
+def scene_boxes(p: "Panel", floor: dict):
+    """Split the floor's scene_buttons area into a 2x2 grid, one box per scene (max 4)."""
+    if not floor.get("scene_buttons"):
+        return []
+    x, y, w, h = floor["scene_buttons"]
+    g = 8
+    bw, bh = (w - g) / 2, (h - g) / 2
+    scenes = (p.cfg.get("scenes") or [])[:4]
+    return [(sc, (x + (i % 2) * (bw + g), y + (i // 2) * (bh + g), bw, bh)) for i, sc in enumerate(scenes)]
+
+
 def room_base_class(room: dict) -> str:
     x, y, rw, rh = room["rect"]
     return "room compact" if (rw < 70 or rh < 50) else "room"
@@ -250,7 +316,8 @@ def room_base_class(room: dict) -> str:
 
 # --------------------------------------------------------------------------- floorplan rules
 
-def floor_rules(p: Panel, floor: dict) -> list:
+def floor_rules(p: Panel, floor: dict, dash: str | None = None) -> list:
+    dash = dash or p.dash
     rules = []
     for room in floor.get("rooms", []):
         light, motion = room.get("light"), room.get("motion")
@@ -298,23 +365,68 @@ def floor_rules(p: Panel, floor: dict) -> list:
             rules.append({"entity": lock["entity"], "element": f"lock.{lock['id']}",
                           "state_action": {"action": "call-service", "service": "floorplan.class_set",
                                            "service_data": {"class": '${entity.state === "locked" ? "lock" : "lock unlocked"}'}},
-                          "tap_action": "more-info"})
+                          "tap_action": {"action": "more-info", "entity": lock["entity"]},
+                          # Press and hold locks/unlocks (no confirmation: the hold is deliberate).
+                          "hold_action": {"action": "call-service", "service": "script.turn_on",
+                                          "service_data": {"entity_id": f"script.{p.package}_toggle_lock_{lock['id']}"}}})
+
+    if garage and garage.get("button"):
+        alarm = p.cfg.get("alarm")
+        js = f"> var door = hass.states['{garage['entity']}'];\n"
+        js += f"var alarm = hass.states['{alarm}'];\n" if alarm else "var alarm = null;\n"
+        js += ("if (!door || door.state === 'closed') return 'ctl';\n"
+               "return (alarm && alarm.state.startsWith('armed')) ? 'ctl problem' : 'ctl attention';")
+        hold = {"action": "call-service", "service": "cover.toggle", "service_data": {"entity_id": garage["entity"]}}
+        rules.append({"entities": [e for e in (garage["entity"], alarm) if e], "element": "ctl.garage",
+                      "state_action": {"action": "call-service", "service": "floorplan.class_set",
+                                       "service_data": {"class": js}},
+                      "tap_action": {"action": "more-info", "entity": garage["entity"]}, "hold_action": hold})
+        rules.append({"entity": garage["entity"], "element": "ctlstate.garage",
+                      "state_action": {"action": "call-service", "service": "floorplan.text_set",
+                                       "service_data": {"text": "${entity.state === 'open' ? 'Open' : "
+                                                                "(entity.state === 'closed' ? 'Closed' : entity.state)}"}}})
+
+    alarm = p.cfg.get("alarm")
+    if floor.get("alarm_button") and alarm:
+        rules.append({"entity": alarm, "element": "ctl.alarm",
+                      "state_action": {"action": "call-service", "service": "floorplan.class_set",
+                                       "service_data": {"class": "${entity.state === 'triggered' ? 'ctl problem' : "
+                                                                 "(entity.state.startsWith('armed') ? 'ctl secure' : "
+                                                                 "(entity.state === 'disarmed' ? 'ctl' : 'ctl attention'))}"}},
+                      "tap_action": {"action": "more-info", "entity": alarm},
+                      "hold_action": {"action": "call-service", "service": "script.turn_on",
+                                      "service_data": {"entity_id": f"script.{p.package}_toggle_alarm"}}})
+        rules.append({"entity": alarm, "element": "ctlstate.alarm",
+                      "state_action": {"action": "call-service", "service": "floorplan.text_set",
+                                       "service_data": {"text": ALARM_TEXT_JS}}})
+
+    for sc, _box in scene_boxes(p, floor):
+        rules.append({"element": f"scene.{slug(sc['name'])}",
+                      "tap_action": {"action": "call-service", "service": "script.turn_on",
+                                     "service_data": {"entity_id": p.scene_script(sc)}}})
 
     for nav in floor.get("stairs", []) or []:
         target = next(f for f in p.floors if f["id"] == nav["to"])
         rules.append({"element": f"nav.{nav['to']}",
-                      "tap_action": {"action": "navigate", "navigation_path": f"/{p.dash}/{p.floor_path(target)}"}})
+                      "tap_action": {"action": "navigate", "navigation_path": f"/{dash}/{p.floor_path(target)}"}})
     return rules
 
 
-def floorplan_card(p: Panel, floor: dict, version: str, **extra) -> dict:
+ALARM_TEXT_JS = ("> var names = {disarmed: 'Disarmed', armed_home: 'Armed home', armed_away: 'Armed away', "
+                 "armed_night: 'Armed night', armed_vacation: 'Armed vacation', armed_custom_bypass: 'Armed', "
+                 "arming: 'Arming…', pending: 'Pending…', triggered: 'TRIGGERED'};\n"
+                 "return names[entity.state] || entity.state;")
+
+
+def floorplan_card(p: Panel, floor: dict, version: str, dash: str | None = None, **extra) -> dict:
+    dash = dash or p.dash
     image = "floor-" + floor["id"] + ".svg"
-    rules = floor_rules(p, floor)
+    rules = floor_rules(p, floor, dash)
     if not floor.get("image"):  # placeholder floor: only its nav element
         back = next((n for n in floor.get("stairs", []) or []), {"to": p.main["id"]})
         target = next(f for f in p.floors if f["id"] == back["to"])
         rules = [{"element": f"nav.{target['id']}",
-                  "tap_action": {"action": "navigate", "navigation_path": f"/{p.dash}/{p.floor_path(target)}"}}]
+                  "tap_action": {"action": "navigate", "navigation_path": f"/{dash}/{p.floor_path(target)}"}}]
     full_height = extra.pop("full_height", False)
     card = {"type": "custom:floorplan-card", **extra, "full_height": full_height,
             "config": {"image": f"{p.www(image)}?v={version}",
@@ -455,17 +567,18 @@ def locks_column(p: Panel) -> dict:
     tiles = []
     for f in p.floors:
         for lock in f.get("locks", []):
-            tiles.append(btn(template="wp_lock", entity=lock["entity"], name=lock["name"]))
+            tiles.append(btn(template="wp_lock", entity=lock["entity"], name=lock["name"],
+                             hold_action={"action": "perform-action", "perform_action": "script.turn_on",
+                                          "target": {"entity_id": f"script.{p.package}_toggle_lock_{lock['id']}"}}))
     for g in p.garages():
         amber = [{"background": "#2a2114"}, {"border": "1px solid #6b4a1c"}]
         tiles.append(btn(
             template="wp_tile", entity=g["entity"], name=g.get("name", "Garage"),
             icon="[[[ return entity.state === 'open' ? 'mdi:garage-open' : 'mdi:garage' ]]]",
-            state_display="[[[ return entity.state === 'open' ? 'Tap to close' : 'Closed' ]]]",
-            tap_action={"action": "perform-action", "perform_action": "cover.toggle",
-                        "target": {"entity_id": g["entity"]},
-                        "confirmation": {"text": "[[[ return entity.state === 'open' ? 'Close the garage door?' : 'Open the garage door?' ]]]"}},
-            hold_action={"action": "more-info"},
+            state_display="[[[ return entity.state === 'open' ? 'Hold to close' : 'Closed' ]]]",
+            tap_action={"action": "more-info"},
+            hold_action={"action": "perform-action", "perform_action": "cover.toggle",
+                         "target": {"entity_id": g["entity"]}},
             state=[{"value": "open", "styles": {"card": amber, "img_cell": [{"background": "#f0a33a"}],
                                                 "icon": [{"color": "#0e1012"}], "name": [{"color": "#f5b75c"}],
                                                 "state": [{"color": "#f5b75c"}]}}]))
@@ -481,12 +594,12 @@ def alarm_card(p: Panel) -> dict:
     if not alarm:
         return at(placeholder("Alarm", icon="mdi:shield-outline"), "alarm")
 
-    def mode(name, service, active_state, confirm=None, dim_when=None):
+    def mode(name, service, active_state, dim_when=None):
+        # Press and hold to act (the household rule for arm/lock); a tap only shows details.
         c = btn(template="wp_action", entity=alarm, name=name,
-                tap_action={"action": "perform-action", "perform_action": f"alarm_control_panel.{service}",
-                            "target": {"entity_id": alarm}})
-        if confirm:
-            c["tap_action"]["confirmation"] = {"text": confirm}
+                tap_action={"action": "more-info"},
+                hold_action={"action": "perform-action", "perform_action": f"alarm_control_panel.{service}",
+                             "target": {"entity_id": alarm}})
         states = []
         if active_state:
             states.append({"value": active_state, "styles": {"card": [{"background": "#1c2d3b"}, {"border": "1px solid #3d5a73"}],
@@ -498,7 +611,7 @@ def alarm_card(p: Panel) -> dict:
         return {"card": c}
 
     return at(btn(
-        entity=alarm, name="Alarm", show_state=True,
+        entity=alarm, name="Alarm · hold a button", show_state=True,
         icon="[[[ return entity.state === 'disarmed' ? 'mdi:shield-outline' : 'mdi:shield-lock' ]]]",
         tap_action={"action": "more-info"},
         styles={"card": [{"height": "100%"}, {"padding": "0 12px 0 18px"}, {"border-radius": "18px"},
@@ -516,7 +629,7 @@ def alarm_card(p: Panel) -> dict:
                                   "off": [{"align-self": "center"}]}},
         custom_fields={"home": mode("Arm home", "alarm_arm_home", "armed_home"),
                        "away": mode("Arm away", "alarm_arm_away", "armed_away"),
-                       "off": mode("Disarm", "alarm_disarm", None, confirm="Disarm the alarm?", dim_when="disarmed")}),
+                       "off": mode("Disarm", "alarm_disarm", None, dim_when="disarmed")}),
         "alarm")
 
 
@@ -545,7 +658,7 @@ def bottom_row(p: Panel, bottom_h: int) -> dict:
         today = at({"type": "markdown", "content": "##### TODAY\nAdd a calendar entity to show today's events here.\n"}, "today")
     scenes = []
     for s in (p.cfg.get("scenes") or [])[:4]:
-        script = s.get("script") or f"script.{p.package}_{slug(s['name'])}"
+        script = p.scene_script(s)
         scenes.append(btn(template="wp_scene", name=s["name"], icon=s.get("icon", "mdi:play"),
                           tap_action={"action": "perform-action", "perform_action": "script.turn_on",
                                       "target": {"entity_id": script}}))
@@ -644,6 +757,137 @@ def dashboard(p: Panel) -> str:
     return head + dump(doc)
 
 
+# --------------------------------------------------------------------------- phone dashboard
+
+def phone_tabs(p: Panel, active: str) -> dict:
+    d = p.phone["dashboard"]
+    tabs = [("home", "Home", "mdi:floor-plan"), ("cameras", "Cameras", "mdi:cctv"),
+            ("today", "Today", "mdi:calendar-today"), ("lists", "Lists", "mdi:format-list-checks")]
+    cards = []
+    for path, name, ic in tabs:
+        c = btn(template="wp_tab", name=name, icon=ic, tap_action={"action": "navigate", "navigation_path": f"/{d}/{path}"})
+        if path == active:
+            c["styles"] = {"icon": [{"color": "#ecebe7"}], "name": [{"color": "#ecebe7"}],
+                           "card": [{"background": "#1d2125"}]}
+        cards.append(c)
+    return grid(cols="repeat(4, minmax(0, 1fr))", rows="56px", gap=6, cards=cards, area="tabs")
+
+
+def phone_page(p: Panel, title: str, path: str, body: list, active: str) -> dict:
+    """A phone view: content stacked in one column, tab bar pinned to the bottom."""
+    areas = [f"b{i}" for i in range(len(body))] + ["tabs"]
+    cards = [at(c, f"b{i}") for i, c in enumerate(body)] + [phone_tabs(p, active)]
+    view_grid = grid(pad=10, gap=10, cols="minmax(0, 1fr)",
+                     rows=" ".join(["auto"] * (len(body) - 1) + ["1fr", "56px"]),
+                     areas=areas, cards=cards)
+    view_grid["layout"]["height"] = "calc(100dvh - 20px)"  # pins the tab bar to the bottom edge
+    return {"title": title, "path": path, "type": "panel", "theme": p.theme, "cards": [view_grid]}
+
+
+def phone_topbar(p: Panel) -> dict:
+    cards = [at({"type": "clock", "clock_size": "small", "no_background": True}, "clock")]
+    cols, names = ["auto"], ["clock"]
+    if p.cfg.get("weather"):
+        cards.append(at(btn(entity=p.cfg["weather"], show_state=False,
+                            name="[[[ return Math.round(entity.attributes.temperature) + '°' ]]]",
+                            tap_action={"action": "more-info"},
+                            styles={"card": [{"height": "44px"}, {"background": "transparent"}, {"box-shadow": "none"}, {"padding": "0 4px"}],
+                                    "grid": [{"grid-template-areas": '"i n"'}, {"grid-template-columns": "26px auto"}, {"column-gap": "6px"}],
+                                    "icon": [{"width": "22px"}, {"color": "#ffcf7a"}],
+                                    "name": [{"font-size": "18px"}, {"font-weight": "600"}, {"color": "#ecebe7"}]}), "weather"))
+        cols.append("auto"); names.append("weather")
+    cols.append("minmax(0, 1fr)"); names.append("gap")
+    cards.append(at({"type": "markdown", "text_only": True, "content": " \n"}, "gap"))
+    alarm = p.cfg.get("alarm")
+    if alarm:
+        cards.append(at(btn(entity=alarm, show_name=False, show_state=True,
+                            icon="[[[ return entity.state === 'disarmed' ? 'mdi:shield-outline' : 'mdi:shield-lock' ]]]",
+                            state_display="[[[ var n = {disarmed: 'Disarmed', armed_home: 'Armed home', armed_away: 'Armed away', "
+                                          "triggered: 'TRIGGERED'}; return n[entity.state] || entity.state; ]]]",
+                            tap_action={"action": "more-info"},
+                            styles={"card": [{"height": "36px"}, {"margin-top": "4px"}, {"padding": "0 12px 0 8px"}, {"border-radius": "18px"},
+                                             {"background": "#1d2125"}, {"box-shadow": "none"}],
+                                    "grid": [{"grid-template-areas": '"i s"'}, {"grid-template-columns": "22px auto"}, {"column-gap": "6px"}],
+                                    "icon": [{"width": "18px"},
+                                             {"color": "[[[ return entity.state === 'disarmed' ? '#a3a9ae' : (entity.state === 'triggered' ? '#ef5b5b' : '#7cb7e8') ]]]"}],
+                                    "state": [{"font-size": "13px"}, {"font-weight": "600"}, {"color": "#ecebe7"}]}), "alarm"))
+        cols.append("auto"); names.append("alarm")
+    cards.append(at(btn(template="wp_nav", icon="mdi:cog", tap_action={"action": "navigate", "navigation_path": "/config"},
+                        styles={"card": [{"width": "44px"}, {"height": "44px"}, {"margin-top": "0"}]}), "cog"))
+    cols.append("44px"); names.append("cog")
+    return grid(areas=[" ".join(names)], cols=" ".join(cols), rows="44px", gap=8, cards=cards)
+
+
+def phone_status(p: Panel) -> dict:
+    """Who's home, any alert, and the thermostats: the only extras under the plan."""
+    cards, names = [], []
+    for i, person in enumerate(p.cfg.get("people", []) or []):
+        nm = person["name"]
+        cards.append(at(btn(template="wp_chip", entity=person["entity"],
+                            name=("[[[ var where = entity.state === 'home' ? 'Home' : entity.state === 'not_home' ? 'Away' : entity.state;\n"
+                                  f"return '{nm} <span style=\"color:#a3a9ae\">· ' + where + '</span>'; ]]]"),
+                            custom_fields={"av": person.get("initial", nm[:1].upper())},
+                            styles={"card": [{"margin-top": "0"}],
+                                    "custom_fields": {"av": [{"background": person.get("color", "#2c4a63")}]}}), f"p{i}"))
+        names.append(f"p{i}")
+    people_row = grid(areas=[" ".join(names) or "."], cols=" ".join(["auto"] * max(1, len(names))) + " minmax(0, 1fr)",
+                      rows="44px", gap=8, cards=cards) if names else None
+    body = [c for c in [people_row] if c]
+    garages = p.garages()
+    if garages:
+        body.append({"type": "conditional",
+                     "conditions": [{"condition": "state", "entity": f"binary_sensor.{p.package}_garage_open_long", "state": "on"}],
+                     "card": btn(entity=garages[0]["entity"], icon="mdi:alert-circle-outline",
+                                 name=f"{garages[0].get('name', 'Garage')} open {p.cfg.get('alerts', {}).get('garage_open_minutes', 20)}+ min",
+                                 show_state=False, tap_action={"action": "more-info"},
+                                 styles={"card": [{"height": "40px"}, {"border-radius": "20px"}, {"background": "#2a2114"},
+                                                  {"border": "1px solid #6b4a1c"}, {"box-shadow": "none"}],
+                                         "grid": [{"grid-template-areas": '"i n"'}, {"grid-template-columns": "20px 1fr"}],
+                                         "icon": [{"width": "16px"}, {"color": "#f5b75c"}],
+                                         "name": [{"justify-self": "start"}, {"font-size": "14px"}, {"font-weight": "600"}, {"color": "#f5b75c"}]})})
+    climate = climate_row(p)
+    climate.pop("view_layout", None)
+    body.append(climate)
+    return body
+
+
+def phone_dashboard(p: Panel) -> str:
+    d = p.phone["dashboard"]
+    templates = yaml.safe_load((TEMPLATES / "button_card_templates.yaml").read_text())
+    version = str(p.cfg.get("asset_version", 1))
+    home_body = [phone_topbar(p), floorplan_card(p, p.main, version, dash=d)] + phone_status(p)
+    views = [phone_page(p, "Home", "home", home_body, "home")]
+    for floor in p.floors[1:]:
+        views.append(phone_page(p, floor["name"], p.floor_path(floor),
+                                [phone_topbar(p), floorplan_card(p, floor, version, dash=d)], "home"))
+    cams = p.cfg.get("cameras") or {}
+    cam_cards = []
+    door = cams.get("doorbell") or {}
+    if door.get("ring_is_sim"):
+        cam_cards.append(btn(template="wp_scene", name="Test doorbell ring", icon="mdi:doorbell",
+                             styles={"grid": [{"grid-template-areas": '"i n"'}, {"grid-template-columns": "30px 1fr"},
+                                              {"grid-template-rows": "1fr"}], "card": [{"height": "52px"}, {"padding": "0 14px"}]},
+                             tap_action={"action": "perform-action", "perform_action": "input_boolean.turn_on",
+                                         "target": {"entity_id": door["ring"]}}))
+    for c in ([door] if door.get("entity") else []) + [c for c in cams.get("others", []) or [] if c.get("entity")]:
+        cam_cards.append({"type": "picture-entity", "entity": c["entity"], "name": c.get("name", ""),
+                          "camera_view": "auto", "aspect_ratio": "16:9", "show_state": False})
+    views.append(phone_page(p, "Cameras", "cameras", cam_cards or [{"type": "markdown", "content": "No cameras yet."}], "cameras"))
+    cal = p.cfg.get("calendar")
+    today = [{"type": "calendar", "entities": [cal], "initial_view": "listWeek"}] if cal else \
+            [{"type": "markdown", "content": "##### TODAY\nAdd a calendar entity to show today's events here.\n"}]
+    views.append(phone_page(p, "Today", "today", today, "today"))
+    lists = [{"type": "todo-list", "entity": t, **({"title": (p.cfg.get("list_titles") or {})[t]}
+                                                    if t in (p.cfg.get("list_titles") or {}) else {})}
+             for t in p.cfg.get("lists", [])] or [{"type": "markdown", "content": "No lists configured yet."}]
+    views.append(phone_page(p, "Lists", "lists", lists, "lists"))
+    doc = {"kiosk_mode": {"kiosk": True},  # full screen in the Companion app; the ⚙ button opens Settings
+           "button_card_templates": templates, "title": p.phone["title"], "views": views}
+    head = (f"# {p.phone['title']} (phone): generated by ha-wall-panel from panel.yaml. Do not hand-edit.\n"
+            f"# Same floorplan, on-plan buttons and SIM entities as /{p.dash}; portrait phones.\n\n")
+    return head + dump(doc)
+
+
 # --------------------------------------------------------------------------- package
 
 def package(p: Panel) -> str:
@@ -659,7 +903,7 @@ def package(p: Panel) -> str:
     template: dict = {}
     locks = []
     for name, lid, backing in sim["lock"]:
-        locks.append({"name": f"SIM {name}", "unique_id": f"{p.package}_sim_{lid}_lock",
+        locks.append({"name": f"SIM {name}", "unique_id": f"{p.package}_sim_{slug(name)}_lock",
                       "state": f"{{{{ 'locked' if is_state('{backing}', 'on') else 'unlocked' }}}}",
                       "lock": [{"action": "input_boolean.turn_on", "target": {"entity_id": backing}}],
                       "unlock": [{"action": "input_boolean.turn_off", "target": {"entity_id": backing}}]})
@@ -689,7 +933,7 @@ def package(p: Panel) -> str:
         domain, obj = g.split(".", 1)
         minutes = int(p.cfg.get("alerts", {}).get("garage_open_minutes", 20))
         template["binary_sensor"] = [{
-            "name": f"{p.package} garage open long", "unique_id": f"{p.package}_alert_garage_open_long",
+            "name": f"{p.title} garage open long", "unique_id": f"{p.package}_alert_garage_open_long",
             "state": (f"{{{{ is_state('{g}', 'open')\n   and (now() - states.{domain}.{obj}.last_changed)"
                       f".total_seconds() > {minutes * 60} }}}}\n")}]
     if template:
@@ -720,6 +964,22 @@ def package(p: Panel) -> str:
         if not seq:
             seq = [{"action": "logbook.log", "data": {"name": s["name"], "message": "scene has no actions yet"}}]
         scripts[f"{p.package}_{slug(s['name'])}"] = {"alias": s["name"], "icon": s.get("icon", "mdi:play"), "sequence": seq}
+    # Hold-to-act helpers used by the floorplan buttons and tiles (work for real or SIM entities).
+    for f in p.floors:
+        for lock in f.get("locks", []):
+            e = lock["entity"]
+            scripts[f"{p.package}_toggle_lock_{lock['id']}"] = {
+                "alias": f"Toggle {lock['name']} lock", "icon": "mdi:lock",
+                "sequence": [{"if": [{"condition": "state", "entity_id": e, "state": "locked"}],
+                              "then": [{"action": "lock.unlock", "target": {"entity_id": e}}],
+                              "else": [{"action": "lock.lock", "target": {"entity_id": e}}]}]}
+    if alarm:
+        scripts[f"{p.package}_toggle_alarm"] = {
+            "alias": "Toggle alarm", "icon": "mdi:shield-home",
+            "sequence": [{"if": [{"condition": "state", "entity_id": alarm, "state": "disarmed"}],
+                          "then": [{"action": f"alarm_control_panel.alarm_arm_{p.alarm_hold_mode.replace('armed_', '')}",
+                                    "target": {"entity_id": alarm}}],
+                          "else": [{"action": "alarm_control_panel.alarm_disarm", "target": {"entity_id": alarm}}]}]}
     if scripts:
         pkg["script"] = scripts
 
@@ -780,6 +1040,8 @@ def main():
         d.mkdir(parents=True, exist_ok=True)
 
     (out / "dashboards" / f"{p.dash}.yaml").write_text(dashboard(p))
+    if p.phone:
+        (out / "dashboards" / f"{p.phone['dashboard']}.yaml").write_text(phone_dashboard(p))
     (out / "packages" / f"{p.package}.yaml").write_text(package(p))
     (out / "themes" / f"{p.dash}.yaml").write_text(theme(p))
     shutil.copy(TEMPLATES / "floorplan.css", www / "floorplan.css")
@@ -797,6 +1059,8 @@ def main():
         yaml.safe_load(f.read_text())
     print(f"Generated {p.title} -> {out}/")
     print(f"  dashboard  dashboards/{p.dash}.yaml   (/{p.dash})")
+    if p.phone:
+        print(f"  phone      dashboards/{p.phone['dashboard']}.yaml   (/{p.phone['dashboard']})")
     print(f"  package    packages/{p.package}.yaml   ({sum(len(v) for v in p.sim.values() if isinstance(v, (dict, list)))} SIM groups)")
     print(f"  theme      themes/{p.dash}.yaml   ({p.theme})")
     print(f"  assets     www/{p.dash}/")

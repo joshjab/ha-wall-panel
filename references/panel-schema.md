@@ -16,6 +16,8 @@ it out, or show a quiet placeholder where the layout has a slot).
 | `asset_version` | `1` | Appended to image/CSS URLs. Bump it after changing them so the tablet refetches |
 | `tablet.browser_id` | `<dashboard>-tablet` | Browser Mod ID the doorbell pop-up targets |
 | `tablet.screen_switch` | none | e.g. `switch.<tablet>_screen` from the Fully Kiosk integration. Turned on when the doorbell rings |
+| `phone.dashboard` / `phone.title` | none | Also generate a portrait **phone dashboard** (e.g. `phone-panel`, which needs a hyphen) from the same floors and controls |
+| `alarm_hold_mode` | `armed_home` | What press-and-hold on the on-plan alarm button arms to when it's disarmed (`armed_away`, `armed_night`...) |
 
 ## `floors[]`
 
@@ -28,8 +30,10 @@ The first floor is the main page (`/<dashboard>/home`). The others get their own
 | `image` | PNG relative to panel.yaml. Omit it for a placeholder floor |
 | `width`, `height` | The image's coordinate space (its pixel size from `prepare_floorplan.py`, or your sketch canvas) |
 | `rooms[]` | See below |
-| `locks[]` | `{id, name, entity, badge: [x, y]}`. `badge` is optional; without it the lock only appears as a tile |
-| `garage` | `{name, entity, bar: [x, y, w, h]}`. `bar` is the door edge drawn on the plan |
+| `locks[]` | `{id, name, entity, badge: [x, y], badge_r?}`. `badge` puts a hold-to-lock button on the plan (radius 26 by default, big enough for a phone). Without it the lock only appears as a tile |
+| `garage` | `{name, entity, bar: [x, y, w, h], button?: [x, y, w, h]}`. `bar` is the door edge drawn on the plan; `button` adds a hold-to-open/close control |
+| `alarm_button` | `[x, y, w, h]`: an on-plan alarm button (tap = details, hold = arm/disarm) |
+| `scene_buttons` | `[x, y, w, h]`: an empty area of the plan for the first four scenes as a 2×2 grid (tap to run) |
 | `stairs[]` | `{to: <floor id>, at: [x, y]}`. A pill that switches floor (omit `at` on placeholder floors) |
 | `doors[]` | Sketch only: doorway gaps `[x, y, length, "h"|"v"]` for `sketch_floorplan.py` |
 
@@ -80,3 +84,13 @@ script for you, acting on whatever entities (real or sim) the panel knows about:
 | `morning` | Disarm, then turn on `lights_on: [room ids]` |
 | `movie` | Lights off, then `lights_on` |
 | any other | Only `lights_on`, or a logbook placeholder if there's nothing to do |
+
+## On-plan controls and the hold rule
+
+Locks, the garage and the alarm act on **press and hold**. A tap only opens their details, so a
+stray touch or a phone in a pocket can't unlock a door. Scenes and room lights act on a tap. The
+same rule applies to the wall panel's tiles and alarm buttons, so both ways of doing something
+behave identically. The controls live in the floor SVG, so the phone and wall panel always show
+the same buttons in the same places. Put them in empty parts of the plan (outside walls, unused
+corners) where they don't cover room labels; about 55+ units tall keeps them finger-sized on a
+phone.

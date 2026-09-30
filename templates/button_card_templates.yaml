@@ -162,3 +162,22 @@ wp_nav:
     icon:
     - width: 22px
     - color: '#a3a9ae'
+wp_tab:
+  show_state: false
+  styles:
+    card:
+    - height: 56px
+    - padding: 4px 0
+    - border-radius: 12px
+    - background: transparent
+    - box-shadow: none
+    grid:
+    - grid-template-areas: '"i" "n"'
+    - grid-template-rows: 1fr min-content
+    icon:
+    - width: 22px
+    - color: '#a3a9ae'
+    name:
+    - font-size: 11px
+    - font-weight: 600
+    - color: '#a3a9ae'
