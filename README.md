@@ -256,3 +256,7 @@ in [`references/sources.md`](references/sources.md). The generator, the floorpla
 `backup`, `hacs`, `deploy` and `reload` implement steps that were done by hand on the first
 build and have not yet been exercised end-to-end through the script. The doorbell pop-up
 automation is deployed but not yet confirmed on a physical tablet.
+
+## License
+
+[MIT](LICENSE)
