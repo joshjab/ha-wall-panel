@@ -104,11 +104,12 @@ their devices in the standard layout:
   text buttons); two climate tiles; today's agenda beside a 2×2 scene grid.
 - **Doorbell pop-up**: full-screen live view with Dismiss, auto-closing after 2 minutes.
 - **On-plan controls** (optional, recommended if there's a phone view): lock buttons at doors, a
-  garage button, an alarm button and a 2×2 scene group placed in empty parts of the plan.
-  **Press and hold** to lock, unlock, open, close, arm or disarm; tap for details. Scenes and
-  lights act on a tap.
-- **Phone dashboard** (optional, `phone:` in panel.yaml): the same plan and controls in portrait,
-  with a slim top bar, people and climate below, and a Home / Cameras / Today / Lists tab bar.
+  garage button, and camera badges that open the live view. **Press and hold** to lock, unlock,
+  open or close; tap for details. Lights act on a tap. The wall panel's own tiles act on a tap
+  (unlock, garage and disarm ask first). See "Tap, hold" in `references/panel-schema.md`.
+- **Phone dashboard** (optional, `phone:` in panel.yaml): the same plan in portrait, with a Mode
+  button and an icon-only alarm shield under it (hold either to pick), then people and climate,
+  and a Home / Cameras / Today / Lists tab bar.
   Ask whether they'll use the Companion app; if so, set it as the app's default dashboard.
 
 Walk them through it, show one "something's wrong" state (garage open, motion, alarm armed), and

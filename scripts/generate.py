@@ -166,6 +166,18 @@ class Panel:
     def garages(self):
         return [f["garage"] for f in self.floors if f.get("garage")]
 
+    def camera_badges(self, floor):
+        """Cameras with a `badge: [x, y]` on this floor (default: the main floor)."""
+        cams = self.cfg.get("cameras") or {}
+        items = ([cams["doorbell"]] if cams.get("doorbell") else []) + list(cams.get("others") or [])
+        return [c for c in items if c.get("badge") and c.get("entity")
+                and c.get("floor", self.main["id"]) == floor["id"]]
+
+    @property
+    def mode_sensor(self):
+        """Trigger-based sensor holding the last scene run (the phone's Mode button shows it)."""
+        return f"sensor.{slug(self.title + ' mode')}" if self.cfg.get("scenes") else None
+
     def scene_script(self, scene: dict) -> str:
         return scene.get("script") or f"script.{self.package}_{slug(scene['name'])}"
 
@@ -223,6 +235,17 @@ def floor_svg(p: Panel, floor: dict) -> str:
             f'    <path d="M{cx - 7.5 * k} {cy - 1 * k}v{-4 * k}a{7.5 * k} {7.5 * k} 0 0 1 {15 * k} 0v{4 * k}" fill="none" '
             f'stroke-width="{2.6 * k:.2f}" stroke-linecap="round"/>',
             f'    <rect x="{cx - 11 * k}" y="{cy - 1 * k}" width="{22 * k}" height="{13 * k}" rx="{2.5 * k}"/>',
+            "  </g>"]
+    for cam in p.camera_badges(floor):
+        cx, cy = cam["badge"]
+        r = cam.get("badge_r", 22)
+        k = r / 18
+        # Camera body + lens, drawn on the same 18-unit grid as the lock glyph.
+        out += [
+            f'  <g id="cam.{slug(cam["name"])}" class="cam">',
+            f'    <circle cx="{cx}" cy="{cy}" r="{r}"/>',
+            f'    <rect x="{cx - 10 * k:.1f}" y="{cy - 6 * k:.1f}" width="{14 * k:.1f}" height="{12 * k:.1f}" rx="{2.5 * k:.1f}"/>',
+            f'    <path d="M{cx + 5 * k:.1f} {cy - 2 * k:.1f}l{6 * k:.1f} {-3.5 * k:.1f}v{11 * k:.1f}l{-6 * k:.1f} {-3.5 * k:.1f}z"/>',
             "  </g>"]
     if garage and garage.get("button"):
         out += control_svg("ctl.garage", "", garage["button"], "garage", garage.get("name", "Garage").upper() + " · HOLD", "ctlstate.garage")
@@ -370,6 +393,11 @@ def floor_rules(p: Panel, floor: dict, dash: str | None = None) -> list:
                           "hold_action": {"action": "call-service", "service": "script.turn_on",
                                           "service_data": {"entity_id": f"script.{p.package}_toggle_lock_{lock['id']}"}}})
 
+    for cam in p.camera_badges(floor):
+        # ha-floorplan only opens more-info from a rule that names an entity, so give it one.
+        rules.append({"entity": cam["entity"], "element": f"cam.{slug(cam['name'])}",
+                      "tap_action": {"action": "more-info", "entity": cam["entity"]}})
+
     if garage and garage.get("button"):
         alarm = p.cfg.get("alarm")
         js = f"> var door = hass.states['{garage['entity']}'];\n"
@@ -504,8 +532,12 @@ def header(p: Panel) -> dict:
             name="[[[ return Math.round(entity.attributes.temperature) + '°' ]]]",
             label=f"[[[ var names = {WEATHER_NAMES};\nreturn names[entity.state] || entity.state; ]]]",
             tap_action={"action": "more-info"},
+            # Rows sized to their text and centred as a block, so temperature + condition sit on the
+            # header's centre line with the clock and chips (two 1fr rows pushed it low).
             styles={"card": [{"height": "64px"}, {"padding": "0 4px"}, {"background": "transparent"}, {"box-shadow": "none"}],
-                    "grid": [{"grid-template-areas": '"i n" "i l"'}, {"grid-template-columns": "34px 1fr"}, {"column-gap": "10px"}],
+                    "grid": [{"grid-template-areas": '"i n" "i l"'}, {"grid-template-columns": "34px 1fr"},
+                             {"grid-template-rows": "min-content min-content"}, {"align-content": "center"},
+                             {"column-gap": "10px"}, {"row-gap": "3px"}],
                     "icon": [{"width": "30px"}, {"color": "#ffcf7a"}],
                     "name": [{"justify-self": "start"}, {"align-self": "end"}, {"font-size": "26px"}, {"font-weight": "600"},
                              {"line-height": "1"}, {"color": "#ecebe7"}],
@@ -564,21 +596,30 @@ def doorbell_card(p: Panel) -> dict:
 
 
 def locks_column(p: Panel) -> dict:
+    # The wall panel's tiles act on a tap (hold shows details). Unlocking and moving the garage
+    # door ask first; locking doesn't. The on-plan buttons keep press-and-hold, because the same
+    # plan is on a phone that lives in a pocket.
     tiles = []
     for f in p.floors:
         for lock in f.get("locks", []):
             tiles.append(btn(template="wp_lock", entity=lock["entity"], name=lock["name"],
-                             hold_action={"action": "perform-action", "perform_action": "script.turn_on",
-                                          "target": {"entity_id": f"script.{p.package}_toggle_lock_{lock['id']}"}}))
+                             tap_action={"action": "perform-action", "perform_action": "script.turn_on",
+                                         "target": {"entity_id": f"script.{p.package}_toggle_lock_{lock['id']}"},
+                                         "confirmation": (f"[[[ return entity.state === 'locked' ? "
+                                                          f"{{text: 'Unlock the {lock['name'].lower()}?'}} : false ]]]")},
+                             hold_action={"action": "more-info"}))
     for g in p.garages():
         amber = [{"background": "#2a2114"}, {"border": "1px solid #6b4a1c"}]
+        gname = g.get("name", "Garage").lower()
         tiles.append(btn(
             template="wp_tile", entity=g["entity"], name=g.get("name", "Garage"),
             icon="[[[ return entity.state === 'open' ? 'mdi:garage-open' : 'mdi:garage' ]]]",
-            state_display="[[[ return entity.state === 'open' ? 'Hold to close' : 'Closed' ]]]",
-            tap_action={"action": "more-info"},
-            hold_action={"action": "perform-action", "perform_action": "cover.toggle",
-                         "target": {"entity_id": g["entity"]}},
+            state_display="[[[ return entity.state === 'open' ? 'Tap to close' : 'Closed' ]]]",
+            tap_action={"action": "perform-action", "perform_action": "cover.toggle",
+                        "target": {"entity_id": g["entity"]},
+                        "confirmation": {"text": f"[[[ return entity.state === 'open' ? 'Close the {gname} door?' "
+                                                 f": 'Open the {gname} door?' ]]]"}},
+            hold_action={"action": "more-info"},
             state=[{"value": "open", "styles": {"card": amber, "img_cell": [{"background": "#f0a33a"}],
                                                 "icon": [{"color": "#0e1012"}], "name": [{"color": "#f5b75c"}],
                                                 "state": [{"color": "#f5b75c"}]}}]))
@@ -594,12 +635,13 @@ def alarm_card(p: Panel) -> dict:
     if not alarm:
         return at(placeholder("Alarm", icon="mdi:shield-outline"), "alarm")
 
-    def mode(name, service, active_state, dim_when=None):
-        # Press and hold to act (the household rule for arm/lock); a tap only shows details.
-        c = btn(template="wp_action", entity=alarm, name=name,
-                tap_action={"action": "more-info"},
-                hold_action={"action": "perform-action", "perform_action": f"alarm_control_panel.{service}",
-                             "target": {"entity_id": alarm}})
+    def mode(name, service, active_state, dim_when=None, confirm=None):
+        # A tap acts (Disarm asks first); hold shows details.
+        tap = {"action": "perform-action", "perform_action": f"alarm_control_panel.{service}",
+               "target": {"entity_id": alarm}}
+        if confirm:
+            tap["confirmation"] = {"text": confirm}
+        c = btn(template="wp_action", entity=alarm, name=name, tap_action=tap, hold_action={"action": "more-info"})
         states = []
         if active_state:
             states.append({"value": active_state, "styles": {"card": [{"background": "#1c2d3b"}, {"border": "1px solid #3d5a73"}],
@@ -611,7 +653,7 @@ def alarm_card(p: Panel) -> dict:
         return {"card": c}
 
     return at(btn(
-        entity=alarm, name="Alarm · hold a button", show_state=True,
+        entity=alarm, name="Alarm", show_state=True,
         icon="[[[ return entity.state === 'disarmed' ? 'mdi:shield-outline' : 'mdi:shield-lock' ]]]",
         tap_action={"action": "more-info"},
         styles={"card": [{"height": "100%"}, {"padding": "0 12px 0 18px"}, {"border-radius": "18px"},
@@ -629,7 +671,7 @@ def alarm_card(p: Panel) -> dict:
                                   "off": [{"align-self": "center"}]}},
         custom_fields={"home": mode("Arm home", "alarm_arm_home", "armed_home"),
                        "away": mode("Arm away", "alarm_arm_away", "armed_away"),
-                       "off": mode("Disarm", "alarm_disarm", None, dim_when="disarmed")}),
+                       "off": mode("Disarm", "alarm_disarm", None, dim_when="disarmed", confirm="Disarm the alarm?")}),
         "alarm")
 
 
@@ -660,6 +702,7 @@ def bottom_row(p: Panel, bottom_h: int) -> dict:
     for s in (p.cfg.get("scenes") or [])[:4]:
         script = p.scene_script(s)
         scenes.append(btn(template="wp_scene", name=s["name"], icon=s.get("icon", "mdi:play"),
+                          entity=p.mode_sensor, state=[{"value": s["name"], "styles": CHOICE_ACTIVE}],
                           tap_action={"action": "perform-action", "perform_action": "script.turn_on",
                                       "target": {"entity_id": script}}))
     row_h = (bottom_h - GAP) // 2
@@ -798,28 +841,121 @@ def phone_topbar(p: Panel) -> dict:
         cols.append("auto"); names.append("weather")
     cols.append("minmax(0, 1fr)"); names.append("gap")
     cards.append(at({"type": "markdown", "text_only": True, "content": " \n"}, "gap"))
-    alarm = p.cfg.get("alarm")
-    if alarm:
-        cards.append(at(btn(entity=alarm, show_name=False, show_state=True,
-                            icon="[[[ return entity.state === 'disarmed' ? 'mdi:shield-outline' : 'mdi:shield-lock' ]]]",
-                            state_display="[[[ var n = {disarmed: 'Disarmed', armed_home: 'Armed home', armed_away: 'Armed away', "
-                                          "triggered: 'TRIGGERED'}; return n[entity.state] || entity.state; ]]]",
-                            tap_action={"action": "more-info"},
-                            styles={"card": [{"height": "36px"}, {"margin-top": "4px"}, {"padding": "0 12px 0 8px"}, {"border-radius": "18px"},
-                                             {"background": "#1d2125"}, {"box-shadow": "none"}],
-                                    "grid": [{"grid-template-areas": '"i s"'}, {"grid-template-columns": "22px auto"}, {"column-gap": "6px"}],
-                                    "icon": [{"width": "18px"},
-                                             {"color": "[[[ return entity.state === 'disarmed' ? '#a3a9ae' : (entity.state === 'triggered' ? '#ef5b5b' : '#7cb7e8') ]]]"}],
-                                    "state": [{"font-size": "13px"}, {"font-weight": "600"}, {"color": "#ecebe7"}]}), "alarm"))
-        cols.append("auto"); names.append("alarm")
     cards.append(at(btn(template="wp_nav", icon="mdi:cog", tap_action={"action": "navigate", "navigation_path": "/config"},
                         styles={"card": [{"width": "44px"}, {"height": "44px"}, {"margin-top": "0"}]}), "cog"))
     cols.append("44px"); names.append("cog")
     return grid(areas=[" ".join(names)], cols=" ".join(cols), rows="44px", gap=8, cards=cards)
 
 
+def _bm_popup(title: str, content: dict) -> dict:
+    """A Browser Mod pop-up on *this* device (no browser registration needed)."""
+    return {"action": "fire-dom-event",
+            "browser_mod": {"service": "browser_mod.popup", "data": {"title": title, "content": content}}}
+
+
+def _bm_then_close(service: str, data: dict) -> dict:
+    """Pop-up choice: run one action, then close the pop-up."""
+    return {"action": "fire-dom-event",
+            "browser_mod": {"service": "browser_mod.sequence",
+                            "data": {"sequence": [{"service": service, "data": data},
+                                                  {"service": "browser_mod.close_popup", "data": {}}]}}}
+
+
+CHOICE_STYLES = {"card": [{"height": "92px"}, {"padding": "12px 14px"}, {"border-radius": "16px"},
+                          {"background": "#1d2125"}, {"border": "1px solid #3a4148"}, {"box-shadow": "none"}],
+                 "grid": [{"grid-template-areas": '"i" "." "n"'}, {"grid-template-columns": "1fr"},
+                          {"grid-template-rows": "min-content 1fr min-content"}],
+                 "img_cell": [{"justify-self": "start"}, {"width": "26px"}, {"height": "26px"}],
+                 "icon": [{"width": "26px"}, {"color": "#ecebe7"}],
+                 "name": [{"justify-self": "start"}, {"font-size": "15px"}, {"font-weight": "600"}, {"color": "#ecebe7"}]}
+CHOICE_ACTIVE = {"card": [{"background": "#1c2d3b"}, {"border": "1px solid #3d5a73"}],
+                 "icon": [{"color": "#7cb7e8"}], "name": [{"color": "#bcdcf6"}]}
+
+
+def mode_picker(p: Panel) -> dict:
+    cards = []
+    for s in (p.cfg.get("scenes") or [])[:6]:
+        cards.append(btn(entity=p.mode_sensor, name=s["name"], icon=s.get("icon", "mdi:play"), show_state=False,
+                         tap_action=_bm_then_close("script.turn_on", {"entity_id": p.scene_script(s)}),
+                         styles=CHOICE_STYLES, state=[{"value": s["name"], "styles": CHOICE_ACTIVE}]))
+    return {"type": "grid", "columns": 2, "square": False, "cards": cards}
+
+
+ALARM_CHOICES = [("Disarm", "mdi:shield-outline", "alarm_disarm", "disarmed"),
+                 ("Arm home", "mdi:home", "alarm_arm_home", "armed_home"),
+                 ("Arm away", "mdi:walk", "alarm_arm_away", "armed_away")]
+
+
+def alarm_picker(p: Panel) -> dict:
+    alarm = p.cfg["alarm"]
+    cards = [btn(entity=alarm, name=name, icon=ic, show_state=False,
+                 tap_action=_bm_then_close(f"alarm_control_panel.{svc}", {"entity_id": alarm}),
+                 styles=CHOICE_STYLES, state=[{"value": st, "styles": CHOICE_ACTIVE}])
+             for name, ic, svc, st in ALARM_CHOICES]
+    return {"type": "grid", "columns": 3, "square": False, "cards": cards}
+
+
+def mode_button(p: Panel) -> dict:
+    """Shows the current scene; press and hold to pick another."""
+    icons = {s["name"]: s.get("icon", "mdi:play") for s in p.cfg.get("scenes") or []}
+    return btn(template="wp_tile", entity=p.mode_sensor, show_label=True, show_state=False,
+               icon=f"[[[ var m = {icons!r}; return m[entity.state] || 'mdi:home-variant-outline' ]]]",
+               name="[[[ return (entity.state in " + repr(icons) + ") ? entity.state : 'Mode' ]]]",
+               label="Mode · hold to change",
+               tap_action={"action": "none"},
+               hold_action=_bm_popup("Mode", mode_picker(p)),
+               styles={"grid": [{"grid-template-areas": '"i n" "i l"'}],
+                       "label": [{"justify-self": "start"}, {"align-self": "start"}, {"font-size": "13px"},
+                                 {"color": "#a3a9ae"}, {"white-space": "nowrap"}]})
+
+
+# Shield glyph per alarm state: [shield icon, colour, inner glyph or None, tile background, border].
+ALARM_GLYPH_JS = ("var s = entity.state;\n"
+                  "var g = {disarmed: ['mdi:shield-outline', '#f0a33a', null, '#2a2114', '#6b4a1c'],\n"
+                  "  armed_away: ['mdi:shield', '#7cb7e8', 'mdi:walk', '#1c2d3b', '#3d5a73'],\n"
+                  "  armed_home: ['mdi:shield', '#7cb7e8', 'mdi:home', '#1c2d3b', '#3d5a73'],\n"
+                  "  armed_night: ['mdi:shield', '#7cb7e8', 'mdi:weather-night', '#1c2d3b', '#3d5a73'],\n"
+                  "  armed_vacation: ['mdi:shield', '#7cb7e8', 'mdi:airplane', '#1c2d3b', '#3d5a73'],\n"
+                  "  armed_custom_bypass: ['mdi:shield', '#7cb7e8', null, '#1c2d3b', '#3d5a73'],\n"
+                  "  arming: ['mdi:shield', '#f0a33a', 'mdi:timer-sand', '#2a2114', '#6b4a1c'],\n"
+                  "  pending: ['mdi:shield', '#f0a33a', 'mdi:timer-sand', '#2a2114', '#6b4a1c'],\n"
+                  "  triggered: ['mdi:shield', '#ef5b5b', 'mdi:exclamation-thick', '#3a1818', '#ef5b5b']}[s]\n"
+                  "  || ['mdi:shield-off-outline', '#6b7278', null, '#16191c', 'transparent'];\n")
+
+
+def alarm_button(p: Panel) -> dict:
+    """Icon-only alarm: amber outline disarmed, blue + person away, blue + house home. Hold to change."""
+    shield = ("[[[ " + ALARM_GLYPH_JS +
+              "var inner = g[2] ? '<ha-icon icon=\"' + g[2] + '\" style=\"--mdc-icon-size:17px;color:#0e1012;"
+              "position:absolute;left:12.5px;top:10px\"></ha-icon>' : '';\n"
+              "return '<div style=\"position:relative;width:42px;height:42px\"><ha-icon icon=\"' + g[0] + "
+              "'\" style=\"--mdc-icon-size:42px;color:' + g[1] + ';position:absolute;inset:0\"></ha-icon>' + inner + '</div>'; ]]]")
+    bg = "[[[ " + ALARM_GLYPH_JS + "return g[3]; ]]]"
+    border = "[[[ " + ALARM_GLYPH_JS + "return '1px solid ' + g[4]; ]]]"
+    return btn(entity=p.cfg["alarm"], show_name=False, show_state=False, show_icon=False,
+               custom_fields={"shield": shield},
+               tap_action={"action": "more-info"},
+               hold_action=_bm_popup("Alarm", alarm_picker(p)),
+               styles={"card": [{"height": "100%"}, {"border-radius": "16px"}, {"background": bg},
+                                {"border": border}, {"box-shadow": "none"}],
+                       "grid": [{"grid-template-areas": '"shield"'}],
+                       "custom_fields": {"shield": [{"justify-self": "center"}, {"align-self": "center"}]}})
+
+
+def phone_controls(p: Panel) -> dict | None:
+    """Row under the plan: Mode (wide) and the alarm shield (square)."""
+    cards, cols, names = [], [], []
+    if p.mode_sensor:
+        cards.append(at(mode_button(p), "mode")); cols.append("minmax(0, 1fr)"); names.append("mode")
+    if p.cfg.get("alarm"):
+        cards.append(at(alarm_button(p), "alarm")); cols.append("72px"); names.append("alarm")
+    if not cards:
+        return None
+    return grid(areas=[" ".join(names)], cols=" ".join(cols), rows="72px", gap=10, cards=cards)
+
+
 def phone_status(p: Panel) -> dict:
-    """Who's home, any alert, and the thermostats: the only extras under the plan."""
+    """Mode and alarm, who's home, any alert, and the thermostats: the only extras under the plan."""
     cards, names = [], []
     for i, person in enumerate(p.cfg.get("people", []) or []):
         nm = person["name"]
@@ -832,7 +968,7 @@ def phone_status(p: Panel) -> dict:
         names.append(f"p{i}")
     people_row = grid(areas=[" ".join(names) or "."], cols=" ".join(["auto"] * max(1, len(names))) + " minmax(0, 1fr)",
                       rows="44px", gap=8, cards=cards) if names else None
-    body = [c for c in [people_row] if c]
+    body = [c for c in [phone_controls(p), people_row] if c]
     garages = p.garages()
     if garages:
         body.append({"type": "conditional",
@@ -936,8 +1072,15 @@ def package(p: Panel) -> str:
             "name": f"{p.title} garage open long", "unique_id": f"{p.package}_alert_garage_open_long",
             "state": (f"{{{{ is_state('{g}', 'open')\n   and (now() - states.{domain}.{obj}.last_changed)"
                       f".total_seconds() > {minutes * 60} }}}}\n")}]
-    if template:
-        pkg["template"] = [template]
+    pkg["template"] = [template] if template else []
+    if p.mode_sensor:
+        # Last scene run, set by the scene scripts' event. Trigger-based, so it survives restarts.
+        pkg["template"].append({
+            "triggers": [{"trigger": "event", "event_type": f"{p.package}_mode"}],
+            "sensor": [{"name": f"{p.title} mode", "unique_id": f"{p.package}_mode",
+                        "icon": "mdi:home-variant-outline", "state": "{{ trigger.event.data.mode }}"}]})
+    if not pkg["template"]:
+        del pkg["template"]
 
     scripts = {}
     lights, locks_all, garages_e = p.all_lights(), p.all_locks(), [g["entity"] for g in garages]
@@ -963,6 +1106,7 @@ def package(p: Panel) -> str:
             seq.append({"action": "homeassistant.turn_on", "target": {"entity_id": [resolve_room_light(p, r) for r in on]}})
         if not seq:
             seq = [{"action": "logbook.log", "data": {"name": s["name"], "message": "scene has no actions yet"}}]
+        seq.insert(0, {"event": f"{p.package}_mode", "event_data": {"mode": s["name"]}})
         scripts[f"{p.package}_{slug(s['name'])}"] = {"alias": s["name"], "icon": s.get("icon", "mdi:play"), "sequence": seq}
     # Hold-to-act helpers used by the floorplan buttons and tiles (work for real or SIM entities).
     for f in p.floors:

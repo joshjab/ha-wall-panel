@@ -92,7 +92,7 @@ One rule per room sets its class from its light and motion together:
 
 Keep everything a room draws **inside its group**. A separate element layered over a room
 steals its taps: ha-floorplan attaches handlers to every element with a rule. Doors are thin
-bars (`door`, `door open`, `door open-armed`), locks are 36-unit circular badges (`lock`,
+bars (`door`, `door open`, `door open-armed`), camera badges are neutral 44-unit circles (`cam`), locks are 36-unit circular badges (`lock`,
 `lock unlocked`), and floor switches are 92×40 pills (`nav`).
 
 ## Components (`templates/button_card_templates.yaml`)
@@ -114,16 +114,20 @@ dimmed when already disarmed.
 ## Phone layout (portrait)
 
 ```
-┌ 6:30 ☀66°        [🛡 Disarmed] ⚙ ┐   top bar 44px; ⚙ opens Settings (HA's header is hidden)
+┌ 6:30 ☀66°                     ⚙ ┐   top bar 44px; ⚙ opens Settings (HA's header is hidden)
 │ ┌───────── floorplan ─────────┐ │
-│ │ [All off][Goodnight]  DEN   │ │   scenes, locks, garage and alarm are ON the plan
-│ │ [Morning][Movie]   KITCHEN  │ │   (the same SVG as the wall panel, so always in sync)
-│ │   (🔒)  [🛡 Alarm] [Garage]  │ │
+│ │ (📷)      (📷)        DEN   │ │   locks, garage and cameras are ON the plan
+│ │   BATH     KITCHEN          │ │   (the same SVG as the wall panel, so always in sync)
+│ │   (🔒) (📷)  [Garage] (📷)  │ │
 │ └─────────────────────────────┘ │
+│ [📺 Movie · Mode      ] [ 🛡 ]  │   Mode + alarm shield: hold to change (72px row)
 │ (J Josh · Away)                 │   people and alerts
 │ [Downstairs] [Upstairs]         │   climate
 ├─ Home · Cameras · Today · Lists ┤   tab bar pinned to the bottom (grid height 100dvh)
 ```
+
+Mode shows the last scene run; the shield is icon-only (amber outline disarmed, blue + walking
+person away, blue + house home, red triggered). Holding either opens a picker pop-up on the phone.
 
 The phone has no right column. Cameras, calendar and lists live on their own tabs. Set the phone
 dashboard as the default in the Companion app (profile → Dashboard), which is a per-device setting.

@@ -64,6 +64,12 @@ text {
 .lock rect { fill: #0e1012; }
 .lock.unlocked circle { fill: #f0a33a; }
 
+/* Camera badge: neutral (a camera has no state worth colouring). Tap opens the live view. */
+.cam { cursor: pointer; }
+.cam circle { fill: #1d2125; stroke: #6b7278; stroke-width: 1.5; }
+.cam rect, .cam path { fill: #ecebe7; }
+.cam:active circle { filter: brightness(1.6); }
+
 /* Navigation pill (stairs -> upstairs). */
 .nav { cursor: pointer; }
 .nav rect { fill: #1d2125; stroke: #3a4148; stroke-width: 1; }

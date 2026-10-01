@@ -32,8 +32,8 @@ The first floor is the main page (`/<dashboard>/home`). The others get their own
 | `rooms[]` | See below |
 | `locks[]` | `{id, name, entity, badge: [x, y], badge_r?}`. `badge` puts a hold-to-lock button on the plan (radius 26 by default, big enough for a phone). Without it the lock only appears as a tile |
 | `garage` | `{name, entity, bar: [x, y, w, h], button?: [x, y, w, h]}`. `bar` is the door edge drawn on the plan; `button` adds a hold-to-open/close control |
-| `alarm_button` | `[x, y, w, h]`: an on-plan alarm button (tap = details, hold = arm/disarm) |
-| `scene_buttons` | `[x, y, w, h]`: an empty area of the plan for the first four scenes as a 2×2 grid (tap to run) |
+| `alarm_button` | `[x, y, w, h]`: an on-plan alarm button (tap = details, hold = arm/disarm). Optional: with a phone dashboard the alarm shield sits under the plan instead |
+| `scene_buttons` | `[x, y, w, h]`: an empty area of the plan for the first four scenes as a 2×2 grid (tap to run). Optional: with a phone dashboard the Mode button under the plan covers this |
 | `stairs[]` | `{to: <floor id>, at: [x, y]}`. A pill that switches floor (omit `at` on placeholder floors) |
 | `doors[]` | Sketch only: doorway gaps `[x, y, length, "h"|"v"]` for `sketch_floorplan.py` |
 
@@ -71,6 +71,7 @@ The first floor is the main page (`/<dashboard>/home`). The others get their own
 | `doorbell.popup_title`, `popup_seconds` | Pop-up text and auto-close time (default 120s) |
 | `doorbell.sim_still_url` | For `sim` cameras: a public, unencrypted still-image URL (`hactl.py sim-cameras`) |
 | `others[]` | `{name, entity, sim_still_url?}` for the Cameras page |
+| `badge`, `floor` | On the doorbell or any `others[]` entry: `badge: [x, y]` puts a camera button on the plan (radius 22, `badge_r` to change) that opens the live view. `floor` defaults to the main floor |
 
 ## `scenes[]` (up to four on the main page)
 
@@ -85,12 +86,26 @@ script for you, acting on whatever entities (real or sim) the panel knows about:
 | `movie` | Lights off, then `lights_on` |
 | any other | Only `lights_on`, or a logbook placeholder if there's nothing to do |
 
-## On-plan controls and the hold rule
+## Mode
 
-Locks, the garage and the alarm act on **press and hold**. A tap only opens their details, so a
-stray touch or a phone in a pocket can't unlock a door. Scenes and room lights act on a tap. The
-same rule applies to the wall panel's tiles and alarm buttons, so both ways of doing something
-behave identically. The controls live in the floor SVG, so the phone and wall panel always show
-the same buttons in the same places. Put them in empty parts of the plan (outside walls, unused
-corners) where they don't cover room labels; about 55+ units tall keeps them finger-sized on a
-phone.
+Every generated scene script first fires a `<package>_mode` event, and a trigger-based template
+sensor (`sensor.<title>_mode`, e.g. `sensor.wall_panel_mode`) keeps the last one run. The wall
+panel highlights that scene's tile; the phone's Mode button shows its icon and name.
+
+## Tap, hold, and where each applies
+
+- **Wall panel tiles** (right column) act on a **tap**: lock/unlock, open/close the garage, arm
+  home/away, disarm. Unlocking, moving the garage door, and disarming ask first; locking and
+  arming don't. Holding a tile opens its details.
+- **On-plan controls** (in the floor SVG, shared by both dashboards) act on **press and hold**:
+  lock badges and the garage button. A tap opens details. Camera badges open the live view on a
+  tap. Room lights toggle on a tap.
+- **Phone Mode and Alarm buttons** (under the plan): press and hold opens a picker (scenes, or
+  Disarm / Arm home / Arm away) as a Browser Mod pop-up on that device; a choice runs and closes
+  it. A tap on the alarm shows its details. The shield reads at a glance: amber outline disarmed,
+  blue with a walking person armed away, blue with a house armed home, red when triggered.
+
+The phone's on-plan controls keep the hold because the phone lives in a pocket. The wall panel
+is mounted, so its tiles act on a tap like any wall switch. Put on-plan controls in empty parts
+of the plan (outside walls, unused corners) where they don't cover room labels; about 55+ units
+tall keeps them finger-sized on a phone.

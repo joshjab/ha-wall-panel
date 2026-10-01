@@ -66,7 +66,7 @@ cameras:
     ring: sim                          # real: binary_sensor.<doorbell>_visitor
     sim_still_url: https://example.com/public-camera.jpg   # any public, unencrypted still image
   others:
-    - {name: Driveway, entity: sim, sim_still_url: https://example.com/public-camera-2.jpg}
+    - {name: Driveway, entity: sim, sim_still_url: https://example.com/public-camera-2.jpg, badge: [375, 480]}  # badge: a camera button on the plan
 
 scenes:
   - {name: All off,   icon: mdi:power,              preset: all_off}
