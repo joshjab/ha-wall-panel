@@ -41,10 +41,13 @@ The first floor is the main page (`/<dashboard>/home`). The others get their own
 
 | Key | Meaning |
 |---|---|
-| `id`, `name` | Room id (SVG element `room.<id>`) and label (shown upper-case) |
+| `id`, `name` | Room id (SVG element `room.<id>`) and name. `name` names the SIM entities in HA; it's also the plan label unless `label` is set |
+| `label` | Short text for the plan, e.g. `Bath` for "Guest Bath Downstairs", or `C` for a closet (shown upper-case) |
+| `label_at` | `[x, y]` baseline for the label (the MOTION tag sits under it), or `center` to centre it (no tag). Default: the bounding box's top-left corner, which can land outside an L-shaped room |
 | `rect` | `[x, y, w, h]` in the floor's coordinates. Rooms under ~70×50 get the compact style |
+| `poly` | Instead of `rect`: `[[x, y], ...]` traced along the room, for L-shapes, bays and halls. The motion outline is clipped to the inside. Include the wall tops if you want the tint to reach them |
 | `light` | Entity that tap toggles and that drives the lit/dark tint (`light.*`, `switch.*`, a group, or `sim`) |
-| `motion` | Binary sensor that drives the outline and MOTION tag, or `sim` |
+| `motion` | Binary sensor that drives the outline and MOTION tag, or `sim`. Omit it for closets |
 | `temperature` | Sensor shown as a label, or `sim` |
 | `temp_at` | `[x, y]` for the temperature label (default: the room's bottom-right corner) |
 | `kind` | Sketch colour: `room`, `kitchen`, `bath`, `laundry`, `garage`, `hall`, `outside` |
@@ -100,8 +103,8 @@ panel highlights that scene's tile; the phone's Mode button shows its icon and n
 - **On-plan controls** (in the floor SVG, shared by both dashboards) act on **press and hold**:
   lock badges and the garage button. A tap opens details. Camera badges open the live view on a
   tap. Room lights toggle on a tap.
-- **Phone Mode and Alarm buttons** (under the plan): press and hold opens a picker (scenes, or
-  Disarm / Arm home / Arm away) as a Browser Mod pop-up on that device; a choice runs and closes
+- **Phone Mode and Alarm buttons** (under the plan): Mode opens its scene picker on a tap or a
+  hold. The alarm opens its picker (Disarm / Arm home / Arm away) on a press and hold as a Browser Mod pop-up on that device; a choice runs and closes
   it. A tap on the alarm shows its details. The shield reads at a glance: amber outline disarmed,
   blue with a walking person armed away, blue with a house armed home, red when triggered.
 

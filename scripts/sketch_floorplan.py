@@ -55,12 +55,16 @@ def main():
     img = Image.new("RGBA", (w * s, h * s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
 
-    for room in floor["rooms"]:
+    def outline(room):  # rect or poly, as scaled points
+        if room.get("poly"):
+            return [(px * s, py * s) for px, py in room["poly"]]
         x, y, rw, rh = room["rect"]
-        d.rectangle([x * s, y * s, (x + rw) * s, (y + rh) * s], fill=FLOOR_FILL[kind_of(room)] + (255,))
+        return [(x * s, y * s), ((x + rw) * s, y * s), ((x + rw) * s, (y + rh) * s), (x * s, (y + rh) * s)]
+
     for room in floor["rooms"]:
-        x, y, rw, rh = room["rect"]
-        d.rectangle([x * s, y * s, (x + rw) * s, (y + rh) * s], outline=WALL + (255,), width=WALL_W * s)
+        d.polygon(outline(room), fill=FLOOR_FILL[kind_of(room)] + (255,))
+    for room in floor["rooms"]:
+        d.polygon(outline(room), outline=WALL + (255,), width=WALL_W * s)
     # Doorway gaps: `doors: [[x, y, length, "h"|"v"], ...]` on the floor, drawn in floor colour.
     for dx, dy, length, orient in floor.get("doors", []) or []:
         box = [dx * s, (dy - 3) * s, (dx + length) * s, (dy + 3) * s] if orient == "h" else \
@@ -69,8 +73,9 @@ def main():
     if args.labels:
         font = ImageFont.load_default()
         for room in floor["rooms"]:
-            x, y, rw, rh = room["rect"]
-            d.text(((x + rw / 2) * s, (y + rh / 2) * s), room["name"], fill=(200, 200, 200, 255), font=font, anchor="mm")
+            pts = outline(room)
+            cx, cy = sum(px for px, _ in pts) / len(pts), sum(py for _, py in pts) / len(pts)
+            d.text((cx, cy), room.get("label", room["name"]), fill=(200, 200, 200, 255), font=font, anchor="mm")
 
     # Saved at --scale x; the SVG draws it into the floor's width x height box, so it stays crisp.
     img.save(args.out)

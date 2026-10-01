@@ -19,9 +19,13 @@ python3 scripts/prepare_floorplan.py their-plan.jpg --out floor-main.png
 - **Low resolution** (under ~800px on the long side) looks soft on a tablet. It still works.
   Mention that a higher-resolution export would help, and move on.
 - **Measure the rooms.** View the processed image and read off each room's rectangle
-  `[x, y, w, h]` in its pixels. Keep rooms to their floor area. The overlay is a tap target and
-  a tint, not an architectural drawing, so rectangles are fine even for L-shaped rooms: use the
-  largest rectangle, or split the room into two entries that share a light.
+  `[x, y, w, h]` in its pixels. For L-shaped rooms, halls, bays and anything a rectangle fits
+  badly, trace a `poly: [[x, y], ...]` instead. Draw a 10-px grid over a 2-3x crop of the image
+  to read corners accurately. Include the drawn wall tops on a room's outer sides if the owner
+  wants the tint to reach them. Small rooms like closets can be a light only, labelled `C` with
+  `label_at: center`.
+- **Check the trace before deploying.** Fill each room's polygon semi-transparently over the
+  image (PIL is enough) and look for gaps between rooms and edges that cross walls.
 - **Exterior doors**: pick a point on or just inside each door for its lock `badge`.
 - **Garage**: the door edge as a thin `bar: [x, y, w, 8]` along the garage's outside wall.
 - **Stairs**: a point on the stairs for the floor-switch pill (`stairs: [{to: upstairs, at: [x, y]}]`).

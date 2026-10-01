@@ -198,25 +198,41 @@ def floor_svg(p: Panel, floor: dict) -> str:
         out.append(f'  <image id="background" href="{href}" xlink:href="{href}" x="0" y="0" width="{w}" height="{h}"/>')
     out.append('  <g id="rooms">')
     for room in floor.get("rooms", []):
-        x, y, rw, rh = room["rect"]
+        x, y, rw, rh = room_bbox(room)
         compact = rw < 70 or rh < 50
-        lx = x + (4 if compact else 8)
-        ly = y + (13 if compact else 15)
+        label = room.get("label", room["name"]).upper()
         tag_w, tag_h = (38, 11) if compact else (46, 13)
-        ty = y + 22
         label_cls = "label small" if compact else "label"
-        out += [
-            f'    <g id="room.{room["id"]}" class="{room_base_class(room)}">',
-            f'      <rect class="shade" x="{x}" y="{y}" width="{rw}" height="{rh}" rx="3"/>',
-            f'      <rect class="outline" x="{x + 1.5}" y="{y + 1.5}" width="{rw - 3}" height="{rh - 3}" rx="4"/>',
-            f'      <text class="{label_cls}" x="{lx}" y="{ly}">{room["name"].upper()}</text>',
-            f'      <g class="tag"><rect x="{lx}" y="{ty}" width="{tag_w}" height="{tag_h}" rx="3"/>'
-            f'<text x="{lx + tag_w / 2}" y="{ty + tag_h - 3}" text-anchor="middle">MOTION</text></g>',
-            "    </g>"]
+        anchor = ""
+        if room.get("label_at") == "center":  # e.g. a closet marked "C"
+            lx, ly = x + rw / 2, y + rh / 2 + (3 if compact else 4)
+            anchor = ' text-anchor="middle"'
+        elif room.get("label_at"):
+            lx, ly = room["label_at"]
+        else:
+            lx, ly = x + (4 if compact else 8), y + (13 if compact else 15)
+        ty = ly + 7
+        rid = room["id"]
+        if room.get("poly"):
+            pts = " ".join(f"{px},{py}" for px, py in room["poly"])
+            # The outline is drawn twice as thick and clipped to the room, so it hugs the inside
+            # of the walls the way the inset rect does for a rectangular room.
+            shapes = [f'      <clipPath id="clip.{rid}"><polygon points="{pts}"/></clipPath>',
+                      f'      <polygon class="shade" points="{pts}"/>',
+                      f'      <polygon class="outline" points="{pts}" clip-path="url(#clip.{rid})" '
+                      'style="stroke-width:5;stroke-linejoin:round"/>']
+        else:
+            shapes = [f'      <rect class="shade" x="{x}" y="{y}" width="{rw}" height="{rh}" rx="3"/>',
+                      f'      <rect class="outline" x="{x + 1.5}" y="{y + 1.5}" width="{rw - 3}" height="{rh - 3}" rx="4"/>']
+        tag = ([] if room.get("label_at") == "center" or not room.get("motion") else
+               [f'      <g class="tag"><rect x="{lx}" y="{ty}" width="{tag_w}" height="{tag_h}" rx="3"/>'
+                f'<text x="{lx + tag_w / 2}" y="{ty + tag_h - 3}" text-anchor="middle">MOTION</text></g>'])
+        out += ([f'    <g id="room.{rid}" class="{room_base_class(room)}">'] + shapes +
+                [f'      <text class="{label_cls}" x="{lx}" y="{ly}"{anchor}>{label}</text>'] + tag + ["    </g>"])
     out.append("  </g>")
     for room in floor.get("rooms", []):
         if room.get("temperature"):
-            x, y, rw, rh = room["rect"]
+            x, y, rw, rh = room_bbox(room)
             tx, ty = room.get("temp_at", [x + rw - 7, y + rh - 7])
             out.append(f'  <text id="temp.{room["id"]}" class="temp" x="{tx}" y="{ty}" text-anchor="end">--°</text>')
     garage = floor.get("garage")
@@ -332,8 +348,16 @@ def scene_boxes(p: "Panel", floor: dict):
     return [(sc, (x + (i % 2) * (bw + g), y + (i // 2) * (bh + g), bw, bh)) for i, sc in enumerate(scenes)]
 
 
+def room_bbox(room: dict):
+    """[x, y, w, h] of a room given as `rect` or as a `poly` outline."""
+    if room.get("poly"):
+        xs, ys = [pt[0] for pt in room["poly"]], [pt[1] for pt in room["poly"]]
+        return [min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys)]
+    return room["rect"]
+
+
 def room_base_class(room: dict) -> str:
-    x, y, rw, rh = room["rect"]
+    x, y, rw, rh = room_bbox(room)
     return "room compact" if (rw < 70 or rh < 50) else "room"
 
 
@@ -896,13 +920,13 @@ def alarm_picker(p: Panel) -> dict:
 
 
 def mode_button(p: Panel) -> dict:
-    """Shows the current scene; press and hold to pick another."""
+    """Shows the current scene; tap (or hold) to pick another."""
     icons = {s["name"]: s.get("icon", "mdi:play") for s in p.cfg.get("scenes") or []}
     return btn(template="wp_tile", entity=p.mode_sensor, show_label=True, show_state=False,
                icon=f"[[[ var m = {icons!r}; return m[entity.state] || 'mdi:home-variant-outline' ]]]",
                name="[[[ return (entity.state in " + repr(icons) + ") ? entity.state : 'Mode' ]]]",
-               label="Mode · hold to change",
-               tap_action={"action": "none"},
+               label="Mode",
+               tap_action=_bm_popup("Mode", mode_picker(p)),
                hold_action=_bm_popup("Mode", mode_picker(p)),
                styles={"grid": [{"grid-template-areas": '"i n" "i l"'}],
                        "label": [{"justify-self": "start"}, {"align-self": "start"}, {"font-size": "13px"},
