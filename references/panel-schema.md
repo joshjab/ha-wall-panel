@@ -74,6 +74,7 @@ The first floor is the main page (`/<dashboard>/home`). The others get their own
 | `doorbell.popup_title`, `popup_seconds` | Pop-up text and auto-close time (default 120s) |
 | `doorbell.sim_still_url` | For `sim` cameras: a public, unencrypted still-image URL (`hactl.py sim-cameras`) |
 | `others[]` | `{name, entity, sim_still_url?}` for the Cameras page |
+| `view` | On the doorbell or any `others[]` entry: `live` (a stream, WebRTC via go2rtc) or `auto` (a still refreshed every ~10 s). Default: `live` for the doorbell (tile, Cameras page, pop-up), `auto` for `others[]`, so the tablet runs one stream at a time. Use the camera's sub stream entity (Reolink: `camera.<name>_fluent`) |
 | `badge`, `floor` | On the doorbell or any `others[]` entry: `badge: [x, y]` puts a camera button on the plan (radius 22, `badge_r` to change) that opens the live view. `floor` defaults to the main floor |
 
 ## `scenes[]` (up to four on the main page)

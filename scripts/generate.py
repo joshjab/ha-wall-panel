@@ -609,6 +609,13 @@ def placeholder(name, label="Not installed yet", icon="mdi:help-circle-outline")
     return btn(template="wp_placeholder", icon=icon, name=name, label=label, tap_action={"action": "none"})
 
 
+def cam_view(cam: dict, default: str = "auto") -> str:
+    """picture-entity `camera_view` for a camera. `live` streams (WebRTC via go2rtc); `auto` is a
+    still that refreshes every ~10 s. The doorbell defaults to live, everything else to a still,
+    so only one stream runs on the tablet at a time. `view:` on the camera overrides either."""
+    return cam.get("view") or default
+
+
 def doorbell_card(p: Panel) -> dict:
     door = (p.cfg.get("cameras") or {}).get("doorbell")
     if not door or not door.get("entity"):
@@ -616,7 +623,7 @@ def doorbell_card(p: Panel) -> dict:
                 "content": "### Front door\nDoorbell not installed yet.\n\nThe live view appears here once it's set up, "
                            "and pops up full screen when someone rings.\n"}
     return {"type": "picture-entity", "entity": door["entity"], "name": door.get("name", "Front door"),
-            "camera_view": "auto", "aspect_ratio": "16:9", "show_state": False}
+            "camera_view": cam_view(door, "live"), "aspect_ratio": "16:9", "show_state": False}
 
 
 def locks_column(p: Panel) -> dict:
@@ -795,7 +802,8 @@ def cameras_view(p: Panel) -> dict:
     cards = [grid(cols="160px 1fr 200px", cards=bar, area="bar")]
     for i, c in enumerate(items):
         cards.append(at({"type": "picture-entity", "entity": c["entity"], "name": c.get("name", ""),
-                         "camera_view": "auto", "aspect_ratio": "16:9", "show_state": False}, f"c{i}"))
+                         "camera_view": cam_view(c, "live" if c is door else "auto"),
+                         "aspect_ratio": "16:9", "show_state": False}, f"c{i}"))
     return {"title": "Cameras", "path": "cameras", "type": "panel", "theme": p.theme, "cards": [grid(
         pad=PAD, cols="minmax(0, 1fr) minmax(0, 1fr)", rows=f"{bar_h}px " + " ".join([f"{row_h}px"] * rows), areas=areas, cards=cards)]}
 
@@ -1031,7 +1039,8 @@ def phone_dashboard(p: Panel) -> str:
                                          "target": {"entity_id": door["ring"]}}))
     for c in ([door] if door.get("entity") else []) + [c for c in cams.get("others", []) or [] if c.get("entity")]:
         cam_cards.append({"type": "picture-entity", "entity": c["entity"], "name": c.get("name", ""),
-                          "camera_view": "auto", "aspect_ratio": "16:9", "show_state": False})
+                          "camera_view": cam_view(c, "live" if c is door else "auto"),
+                          "aspect_ratio": "16:9", "show_state": False})
     views.append(phone_page(p, "Cameras", "cameras", cam_cards or [{"type": "markdown", "content": "No cameras yet."}], "cameras"))
     cal = p.cfg.get("calendar")
     today = [{"type": "calendar", "entities": [cal], "initial_view": "listWeek"}] if cal else \
@@ -1161,7 +1170,7 @@ def package(p: Panel) -> str:
             "title": door.get("popup_title", "Someone's at the front door"),
             "initial_style": "fullscreen", "timeout": int(door.get("popup_seconds", 120)) * 1000,
             "dismissable": True,
-            "content": {"type": "picture-entity", "entity": door["entity"], "camera_view": "auto",
+            "content": {"type": "picture-entity", "entity": door["entity"], "camera_view": cam_view(door, "live"),
                         "show_name": False, "show_state": False},
             "right_button": "Dismiss",
             "right_button_action": {"action": "browser_mod.close_popup", "data": {"browser_id": [p.browser_id]}}}})
